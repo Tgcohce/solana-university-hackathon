@@ -49,12 +49,13 @@ export async function signWithPasskey(
   credentialId: Uint8Array,
   message: Uint8Array
 ): Promise<Uint8Array> {
-  // Hash the message to 32 bytes for the challenge
-  const msgHash = await crypto.subtle.digest("SHA-256", message);
+  // CRITICAL: Use the message directly as the challenge
+  // WebAuthn will hash it internally with SHA-256
+  // The signature will be over SHA256(message), which matches on-chain verification
   
   const credential = await navigator.credentials.get({
     publicKey: {
-      challenge: new Uint8Array(msgHash),
+      challenge: message, // Use message directly, NOT pre-hashed
       rpId: window.location.hostname,
       allowCredentials: [{
         id: credentialId,
