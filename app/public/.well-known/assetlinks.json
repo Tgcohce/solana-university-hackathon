@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "com.noobmaster169.myapp",
-    "sha256_cert_fingerprints": ["70A21403537476D17F4C34A990D3E351CD4D710D90CCEE6007380A34D4EB5C14"]
+    "sha256_cert_fingerprints": ["70:A2:14:03:53:74:76:D1:7F:4C:34:A9:90:D3:E3:51:CD:4D:71:0D:90:CC:EE:60:07:38:0A:34:D4:EB:5C:14"]
   }
 }]
