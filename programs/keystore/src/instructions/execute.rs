@@ -1,12 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
-use anchor_lang::solana_program::secp256r1_program;
 use crate::state::*;
 use crate::error::KeystoreError;
 use crate::{Action, SignatureData};
 use crate::secp256r1;
-use std::collections::HashSet;
 
 #[derive(Accounts)]
 pub struct Execute<'info> {
@@ -85,15 +83,18 @@ pub fn handler(
         Action::Send { to, lamports } => {
             let recipient = ctx.accounts.recipient
                 .as_ref()
-                .ok_or(ProgramError::InvalidAccountData)?;
+                .ok_or(KeystoreError::InvalidKeyIndex)?;
             
-            require!(recipient.key() == to, ProgramError::InvalidAccountData);
+            require!(
+                recipient.key() == to,
+                KeystoreError::InvalidKeyIndex
+            );
             
             // Check vault has sufficient balance
             let vault_balance = ctx.accounts.vault.lamports();
             require!(
                 vault_balance >= lamports,
-                ProgramError::InsufficientFunds
+                KeystoreError::InvalidThreshold
             );
             
             // Ensure we maintain rent exemption (if needed)
@@ -101,7 +102,7 @@ pub fn handler(
             let min_balance = rent.minimum_balance(0);
             require!(
                 vault_balance.saturating_sub(lamports) >= min_balance || lamports == vault_balance,
-                ProgramError::InsufficientFunds
+                KeystoreError::InvalidThreshold
             );
             
             let identity_key = identity.key();

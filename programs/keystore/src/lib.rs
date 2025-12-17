@@ -7,7 +7,7 @@ pub mod secp256r1;
 
 use instructions::*;
 
-declare_id!("6CQi7F4UgYqbSRL8DEkXqjBAxHbgpoxeKqyt6kUieuwp");
+declare_id!("4DS5K64SuWK6PmN1puZVtPouLWCqQDA3aE58MPPuDXu2");
 
 #[program]
 pub mod keystore {

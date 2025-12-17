@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::state::*;
+use crate::error::KeystoreError;
 
 #[derive(Accounts)]
 pub struct RegisterCredential<'info> {
@@ -35,18 +36,13 @@ pub fn handler(
     
     // Validate inputs
     require!(
-        credential_id.len() <= 256,
-        ProgramError::InvalidArgument
-    );
-    
-    require!(
-        !credential_id.is_empty(),
-        ProgramError::InvalidArgument
+        credential_id.len() <= 256 && !credential_id.is_empty(),
+        KeystoreError::InvalidDeviceName
     );
     
     require!(
         device_name.len() <= 32 && !device_name.is_empty(),
-        ProgramError::InvalidArgument
+        KeystoreError::InvalidDeviceName
     );
     
     // Get the key index (last key added)

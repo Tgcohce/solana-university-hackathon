@@ -9,7 +9,7 @@ import {
 } from "@solana/web3.js";
 import { sha256 } from "@noble/hashes/sha256";
 
-export const PROGRAM_ID = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+export const PROGRAM_ID = new PublicKey("4DS5K64SuWK6PmN1puZVtPouLWCqQDA3aE58MPPuDXu2");
 export const SECP256R1_PROGRAM_ID = new PublicKey("Secp256r1SigVerify1111111111111111111111111");
 
 /**

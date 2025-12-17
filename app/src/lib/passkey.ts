@@ -24,7 +24,9 @@ export async function createPasskey(username: string): Promise<PasskeyCredential
         name: username,
         displayName: username,
       },
-      pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+      pubKeyCredParams: [
+        { alg: -7, type: "public-key" }, // ES256 (secp256r1/P-256) - required for passkeys
+      ],
       authenticatorSelection: {
         authenticatorAttachment: "platform",
         userVerification: "required",

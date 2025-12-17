@@ -18,5 +18,13 @@ pub enum KeystoreError {
     DuplicateKey,
     #[msg("Invalid public key format")]
     InvalidPublicKey,
+    #[msg("Invalid device name (must be 1-32 chars)")]
+    InvalidDeviceName,
+    #[msg("Invalid public key format (must be compressed secp256r1)")]
+    InvalidPublicKeyFormat,
+    #[msg("Credential already registered")]
+    CredentialAlreadyRegistered,
+    #[msg("Max credentials reached")]
+    MaxCredentialsReached,
 }
 
