@@ -72,14 +72,32 @@ Messages are constructed as: `action_data || nonce`
 
 ### Prerequisites
 
-- Rust + Solana CLI + Anchor CLI (v0.30.1)
-- Node.js + npm/yarn
-- Solana wallet with devnet SOL
+- **Rust + Solana CLI + Anchor CLI (v0.32.1)**
+- **Node.js + npm/yarn**
+- **Solana wallet with devnet SOL**
+
+**Windows Users**: Due to permission issues with `cargo-build-sbf`, use WSL (Windows Subsystem for Linux):
+
+```bash
+# Install WSL (if not already)
+wsl --install
+
+# In WSL, install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Install Solana CLI
+sh -c "$(curl -sSfL https://release.anza.xyz/v2.1.5/install)"
+export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+
+# Install Anchor CLI
+cargo install --git https://github.com/coral-xyz/anchor --tag v0.32.1 anchor-cli --locked
+```
 
 ### Build & Deploy
 
 ```bash
-# 1. Build the Solana program
+# 1. Build the Solana program (use WSL on Windows)
 anchor build
 
 # 2. Get your program ID
@@ -90,23 +108,28 @@ solana address -k target/deploy/keystore-keypair.json
 #    - programs/keystore/src/lib.rs (declare_id! macro)
 #    - app/src/lib/keystore.ts (PROGRAM_ID constant)
 
-# 4. Deploy to devnet
+# 4. Rebuild after updating IDs
+anchor build
+
+# 5. Deploy to devnet
 anchor deploy --provider.cluster devnet
 
-# 5. Install dependencies
+# 6. Install frontend dependencies
 cd app && npm install
+
+# 7. Install relayer dependencies
 cd ../relayer && npm install
 
-# 6. Start relayer (in one terminal)
+# 8. Start relayer (in one terminal)
 cd relayer && npm run dev
 
-# 7. Start frontend (in another terminal)
+# 9. Start frontend (in another terminal)
 cd app && npm run dev
 ```
 
-### Using Solana Playground (Easier for Windows)
+### Alternative: Using Solana Playground (Easiest)
 
-If you encounter build issues on Windows:
+If you encounter build issues:
 
 1. Go to https://beta.solpg.io
 2. Create new Anchor project
