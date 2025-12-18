@@ -25,7 +25,7 @@ jobs:
           override: true
 
       - name: Cache Solana
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/solana
@@ -46,7 +46,7 @@ jobs:
           anchor build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: solana-program
           path: |
