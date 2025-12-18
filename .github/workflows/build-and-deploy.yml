@@ -30,46 +30,30 @@ jobs:
           rm -rf solana-release solana.tar.bz2
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Fix dependencies for Rust 1.75
+      - name: Generate Cargo.lock with compatible versions
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-          
-          rm -f Cargo.lock
+          # Generate initial lockfile
           cargo generate-lockfile
           
-          echo "=== Downgrading dependencies for Rust 1.75 compatibility ==="
+          # Force downgrade ALL problematic packages
+          # Run in a loop until no more updates needed
+          for i in 1 2 3 4 5; do
+            echo "=== Pass $i ==="
+            cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
+            cargo update -p borsh --precise 1.5.1 2>/dev/null || true  
+            cargo update -p borsh-derive --precise 1.5.1 2>/dev/null || true
+            cargo update -p hashbrown --precise 0.14.3 2>/dev/null || true
+            cargo update -p proc-macro-crate --precise 1.3.1 2>/dev/null || true
+            cargo update -p toml_edit --precise 0.19.15 2>/dev/null || true
+            cargo update -p toml_datetime --precise 0.6.3 2>/dev/null || true
+            cargo update -p winnow --precise 0.5.40 2>/dev/null || true
+          done
           
-          # The proc-macro-crate -> toml chain is the problem
-          # Pin proc-macro-crate to 1.x which uses older toml
-          cargo update -p proc-macro-crate --precise 1.3.1 || true
+          echo "=== Checking indexmap version ==="
+          grep -A2 'name = "indexmap"' Cargo.lock | head -6
           
-          # toml ecosystem - all need to be old versions
-          cargo update -p toml --precise 0.5.11 || true
-          cargo update -p toml_edit --precise 0.19.15 || true
-          cargo update -p toml_datetime --precise 0.6.3 || true
-          
-          # These don't exist in old toml, remove if present
-          cargo update -p toml_parser --precise 0.1.0 2>/dev/null || true
-          
-          # indexmap - needs to be <2.7
-          cargo update -p indexmap --precise 2.2.6 || true
-          
-          # borsh - needs to be <1.6
-          cargo update -p borsh --precise 1.5.1 || true
-          
-          # borsh-derive also
-          cargo update -p borsh-derive --precise 1.5.1 || true
-          
-          # hashbrown
-          cargo update -p hashbrown --precise 0.14.3 || true
-          
-          # Run updates again
-          cargo update -p proc-macro-crate --precise 1.3.1 || true
-          cargo update -p indexmap --precise 2.2.6 || true
-          cargo update -p borsh --precise 1.5.1 || true
-          
-          echo "=== Final versions ==="
-          grep -E "^name = \"(proc-macro-crate|toml|indexmap|borsh)\"" Cargo.lock -A1 || true
+          echo "=== Checking borsh version ==="
+          grep -A2 'name = "borsh"' Cargo.lock | head -6
 
       - name: Build program
         run: |

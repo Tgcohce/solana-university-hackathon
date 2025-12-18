@@ -12,13 +12,3 @@ opt-level = 3
 incremental = false
 codegen-units = 1
 
-# Force dependency versions compatible with Rust 1.75 (Solana's cargo-build-sbf)
-[workspace.dependencies]
-indexmap = "=2.2.6"
-borsh = "=1.5.1"
-borsh-derive = "=1.5.1"
-hashbrown = "=0.14.3"
-proc-macro-crate = "=1.3.1"
-toml_edit = "=0.19.15"
-toml_datetime = "=0.6.3"
-
