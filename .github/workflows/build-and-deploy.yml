@@ -13,56 +13,64 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev
+          sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev curl wget
 
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source "$HOME/.cargo/env"
-          rustup install 1.75.0
-          rustup default 1.75.0
-          rustc --version
-          cargo --version
+      - name: Install Rust 1.75
+        uses: dtolnay/rust-toolchain@1.75.0
 
-      - name: Install Solana
+      - name: Download and install Solana
         run: |
-          curl -sSfL https://release.solana.com/v1.18.17/solana-install-init-x86_64-unknown-linux-gnu -o solana-install-init
-          chmod +x solana-install-init
-          ./solana-install-init v1.18.17
-          rm solana-install-init
+          # Download the tarball directly
+          wget -q https://github.com/solana-labs/solana/releases/download/v1.18.17/solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          
+          # Extract to home directory
+          tar -xjf solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          
+          # Move to a known location
+          mkdir -p $HOME/.local/share/solana/install/active_release
+          mv solana-release/* $HOME/.local/share/solana/install/active_release/
+          
+          # Cleanup
+          rm -rf solana-release solana-release-x86_64-unknown-linux-gnu.tar.bz2
+          
+          # Add to PATH for subsequent steps
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Verify Solana installation
+      - name: Verify installations
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          echo "=== Versions ==="
+          rustc --version
+          cargo --version
           solana --version
-          cargo-build-sbf --version || echo "cargo-build-sbf version check"
+          cargo-build-sbf --version
 
       - name: Build program
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
-          source "$HOME/.cargo/env"
-          echo "Building keystore program..."
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           cd programs/keystore
-          cargo-build-sbf --sbf-out-dir ../../target/deploy 2>&1
+          echo "Starting build..."
+          cargo-build-sbf --sbf-out-dir ../../target/deploy
+          echo "Build complete!"
           
-      - name: Verify build
+      - name: Verify build output
         run: |
           echo "=== Build Results ==="
-          ls -lah target/deploy/ || echo "No deploy directory"
+          ls -lah target/deploy/
+          
           if [ -f "target/deploy/keystore.so" ]; then
-            echo "✓ keystore.so built successfully!"
+            echo ""
+            echo "✓ SUCCESS: keystore.so built!"
             ls -lh target/deploy/keystore.so
           else
-            echo "✗ Build failed - no .so file"
-            find . -name "*.so" 2>/dev/null || echo "No .so files found"
+            echo "✗ FAILED: keystore.so not found"
             exit 1
           fi
 
-      - name: Upload program
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: solana-program
@@ -71,7 +79,7 @@ jobs:
             target/deploy/keystore-keypair.json
           if-no-files-found: error
           
-      - name: Show deploy instructions
+      - name: Deploy instructions
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           echo "========================================="
@@ -81,5 +89,5 @@ jobs:
           echo "Program ID:"
           solana-keygen pubkey target/deploy/keystore-keypair.json
           echo ""
-          echo "Download artifact and deploy with:"
+          echo "To deploy, download the artifact and run:"
           echo "  solana program deploy keystore.so"
