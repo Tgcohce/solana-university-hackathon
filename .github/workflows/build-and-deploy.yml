@@ -3,13 +3,10 @@ name: Build and Deploy to Devnet
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Allow manual trigger
-
-env:
-  AGAVE_VERSION: 'v2.1.7'
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     
     steps:
@@ -17,54 +14,62 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.79.0
 
-      - name: Cache Agave
-        uses: actions/cache@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.cache/solana
-            ~/.local/bin
-          key: agave-${{ env.AGAVE_VERSION }}
+          node-version: '18'
 
-      - name: Install Agave (Solana)
+      - name: Install Solana
         run: |
-          wget -qO - https://github.com/anza-xyz/agave/releases/download/${{ env.AGAVE_VERSION }}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 | tar -xjf - -C /tmp
-          sudo cp -r /tmp/solana-release/bin/* /usr/local/bin/
+          sh -c "$(curl -sSfL https://release.anza.xyz/v2.0.18/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           solana --version
-          cargo-build-sbf --version
 
-      - name: Build program with cargo-build-sbf
+      - name: Install Anchor CLI
         run: |
-          cd programs/keystore
-          cargo-build-sbf --sbf-out-dir ../../target/deploy
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install 0.30.1
+          avm use 0.30.1
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      - name: Upload build artifacts
+      - name: Verify tools
+        run: |
+          rustc --version
+          cargo --version
+          solana --version
+          anchor --version
+
+      - name: Build with Anchor
+        run: |
+          anchor build --skip-lint
+        continue-on-error: false
+
+      - name: List built files
+        run: |
+          echo "Contents of target/deploy:"
+          ls -lah target/deploy/ || echo "Deploy directory not found"
+          echo ""
+          echo "Searching for .so files:"
+          find target -name "*.so" -type f || echo "No .so files found"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: solana-program
           path: |
             target/deploy/*.so
-            target/deploy/*-keypair.json
+            target/deploy/*.json
           retention-days: 30
 
-      # Automatic deployment disabled - download artifact and deploy manually
-      # - name: Deploy to Devnet (if keypair provided)
-      #   if: ${{ secrets.SOLANA_DEPLOYER_KEY != '' }}
-      #   run: |
-      #     echo "${{ secrets.SOLANA_DEPLOYER_KEY }}" > deployer-keypair.json
-      #     solana config set --url devnet
-      #     solana config set --keypair deployer-keypair.json
-      #     solana airdrop 2 || true
-      #     solana program deploy target/deploy/keystore.so
-      #     rm deployer-keypair.json
-
-      - name: Show deployment info
+      - name: Show program info
+        if: success()
         run: |
           echo "Program ID:"
-          solana-keygen pubkey target/deploy/keystore-keypair.json
+          solana-keygen pubkey target/deploy/keystore-keypair.json || echo "Keypair not found"
           echo ""
-          echo "Download the built program from the Artifacts above"
-          echo "Then deploy manually with:"
+          echo "Download the artifact above and deploy with:"
           echo "  solana program deploy keystore.so"
-
