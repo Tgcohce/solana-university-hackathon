@@ -37,37 +37,39 @@ jobs:
           rm -f Cargo.lock
           cargo generate-lockfile
           
-          # Keep running updates until no more changes
-          echo "=== Downgrading dependencies ==="
+          echo "=== Downgrading dependencies for Rust 1.75 compatibility ==="
           
-          # indexmap 2.7+ requires 1.82, use 2.2.6
-          cargo update -p indexmap@2.12.1 --precise 2.2.6 2>/dev/null || \
-          cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
+          # The proc-macro-crate -> toml chain is the problem
+          # Pin proc-macro-crate to 1.x which uses older toml
+          cargo update -p proc-macro-crate --precise 1.3.1 || true
           
-          # borsh 1.6 requires 1.77
-          cargo update -p borsh@1.6.0 --precise 1.5.1 2>/dev/null || \
-          cargo update -p borsh --precise 1.5.1 2>/dev/null || true
+          # toml ecosystem - all need to be old versions
+          cargo update -p toml --precise 0.5.11 || true
+          cargo update -p toml_edit --precise 0.19.15 || true
+          cargo update -p toml_datetime --precise 0.6.3 || true
           
-          # toml_datetime 0.7.4 requires 1.76
-          cargo update -p toml_datetime@0.7.4 --precise 0.6.5 2>/dev/null || \
-          cargo update -p toml_datetime --precise 0.6.5 2>/dev/null || true
+          # These don't exist in old toml, remove if present
+          cargo update -p toml_parser --precise 0.1.0 2>/dev/null || true
           
-          # toml_edit pulls in toml_datetime
-          cargo update -p toml_edit --precise 0.21.1 2>/dev/null || true
+          # indexmap - needs to be <2.7
+          cargo update -p indexmap --precise 2.2.6 || true
           
-          # proc-macro-crate pulls in toml stuff
-          cargo update -p proc-macro-crate --precise 2.0.0 2>/dev/null || true
+          # borsh - needs to be <1.6
+          cargo update -p borsh --precise 1.5.1 || true
+          
+          # borsh-derive also
+          cargo update -p borsh-derive --precise 1.5.1 || true
           
           # hashbrown
-          cargo update -p hashbrown --precise 0.14.3 2>/dev/null || true
+          cargo update -p hashbrown --precise 0.14.3 || true
           
-          # Run again to catch transitive deps
-          cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
-          cargo update -p borsh --precise 1.5.1 2>/dev/null || true
-          cargo update -p toml_datetime --precise 0.6.5 2>/dev/null || true
+          # Run updates again
+          cargo update -p proc-macro-crate --precise 1.3.1 || true
+          cargo update -p indexmap --precise 2.2.6 || true
+          cargo update -p borsh --precise 1.5.1 || true
           
-          echo "=== Checking versions ==="
-          grep -E "name = \"(indexmap|borsh|toml_datetime)\"" Cargo.lock -A1 | head -20
+          echo "=== Final versions ==="
+          grep -E "^name = \"(proc-macro-crate|toml|indexmap|borsh)\"" Cargo.lock -A1 || true
 
       - name: Build program
         run: |
