@@ -6,8 +6,7 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 env:
-  SOLANA_VERSION: '1.18.26'
-  ANCHOR_VERSION: '0.30.1'
+  AGAVE_VERSION: 'v2.1.7'
 
 jobs:
   build-and-deploy:
@@ -18,32 +17,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Solana
+      - name: Cache Agave
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/solana
-            ~/.local/share/solana
-          key: solana-${{ env.SOLANA_VERSION }}
+            ~/.local/bin
+          key: agave-${{ env.AGAVE_VERSION }}
 
-      - name: Install Solana
+      - name: Install Agave (Solana)
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v${{ env.SOLANA_VERSION }}/install)"
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          wget -qO - https://github.com/anza-xyz/agave/releases/download/${{ env.AGAVE_VERSION }}/solana-release-x86_64-unknown-linux-gnu.tar.bz2 | tar -xjf - -C /tmp
+          sudo cp -r /tmp/solana-release/bin/* /usr/local/bin/
+          solana --version
+          cargo-build-sbf --version
 
-      - name: Install Anchor
+      - name: Build program with cargo-build-sbf
         run: |
-          cargo install --git https://github.com/coral-xyz/anchor --tag v${{ env.ANCHOR_VERSION }} anchor-cli --locked
-
-      - name: Build program
-        run: |
-          anchor build
+          cd programs/keystore
+          cargo-build-sbf --sbf-out-dir ../../target/deploy
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
