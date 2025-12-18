@@ -16,62 +16,96 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev curl wget
+          sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev curl wget bzip2
 
       - name: Install Rust 1.75
         uses: dtolnay/rust-toolchain@1.75.0
 
-      - name: Download and install Solana
+      - name: Download Solana
         run: |
-          # Download the tarball directly
-          wget -q https://github.com/solana-labs/solana/releases/download/v1.18.17/solana-release-x86_64-unknown-linux-gnu.tar.bz2
-          
-          # Extract to home directory
-          tar -xjf solana-release-x86_64-unknown-linux-gnu.tar.bz2
-          
-          # Move to a known location
-          mkdir -p $HOME/.local/share/solana/install/active_release
-          mv solana-release/* $HOME/.local/share/solana/install/active_release/
-          
-          # Cleanup
-          rm -rf solana-release solana-release-x86_64-unknown-linux-gnu.tar.bz2
-          
-          # Add to PATH for subsequent steps
-          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          echo "Downloading Solana 1.18.17..."
+          wget -q --show-progress https://github.com/solana-labs/solana/releases/download/v1.18.17/solana-release-x86_64-unknown-linux-gnu.tar.bz2 -O solana.tar.bz2
+          echo "Download complete. Size:"
+          ls -lh solana.tar.bz2
 
-      - name: Verify installations
+      - name: Install Solana
+        run: |
+          echo "Extracting Solana..."
+          tar -xjf solana.tar.bz2
+          
+          echo "Installing to ~/.local/share/solana..."
+          mkdir -p $HOME/.local/share/solana/install/active_release
+          cp -r solana-release/* $HOME/.local/share/solana/install/active_release/
+          
+          echo "Cleaning up..."
+          rm -rf solana-release solana.tar.bz2
+          
+          echo "Adding to PATH..."
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          
+          echo "Solana installed!"
+
+      - name: Verify tools
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
-          echo "=== Versions ==="
+          echo "=== Tool Versions ==="
+          which solana
+          solana --version
+          which cargo-build-sbf
+          cargo-build-sbf --version
           rustc --version
           cargo --version
-          solana --version
-          cargo-build-sbf --version
+
+      - name: Generate Cargo.lock if missing
+        run: |
+          if [ ! -f Cargo.lock ]; then
+            echo "Generating Cargo.lock..."
+            cargo generate-lockfile
+          else
+            echo "Cargo.lock exists"
+          fi
 
       - name: Build program
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          
+          echo "=== Starting Build ==="
+          echo "Working directory: $(pwd)"
+          echo "Program directory contents:"
+          ls -la programs/keystore/
+          
           cd programs/keystore
-          echo "Starting build..."
-          cargo-build-sbf --sbf-out-dir ../../target/deploy
-          echo "Build complete!"
           
-      - name: Verify build output
-        run: |
-          echo "=== Build Results ==="
-          ls -lah target/deploy/
-          
-          if [ -f "target/deploy/keystore.so" ]; then
+          echo ""
+          echo "Running cargo-build-sbf..."
+          cargo-build-sbf --sbf-out-dir ../../target/deploy 2>&1 || {
             echo ""
-            echo "✓ SUCCESS: keystore.so built!"
-            ls -lh target/deploy/keystore.so
-          else
-            echo "✗ FAILED: keystore.so not found"
+            echo "=== BUILD FAILED ==="
+            echo "Checking for common issues..."
+            echo ""
+            echo "Cargo.toml:"
+            cat Cargo.toml
+            echo ""
+            echo "Trying with --verbose..."
+            cargo-build-sbf --sbf-out-dir ../../target/deploy --verbose 2>&1 || true
             exit 1
-          fi
+          }
+          
+          echo ""
+          echo "=== Build Complete ==="
+          
+      - name: List build output
+        if: always()
+        run: |
+          echo "=== target/deploy contents ==="
+          ls -lah target/deploy/ 2>/dev/null || echo "Directory doesn't exist"
+          echo ""
+          echo "=== All .so files ==="
+          find . -name "*.so" -type f 2>/dev/null || echo "No .so files found"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: solana-program
           path: |
@@ -79,7 +113,8 @@ jobs:
             target/deploy/keystore-keypair.json
           if-no-files-found: error
           
-      - name: Deploy instructions
+      - name: Success
+        if: success()
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           echo "========================================="
@@ -89,5 +124,5 @@ jobs:
           echo "Program ID:"
           solana-keygen pubkey target/deploy/keystore-keypair.json
           echo ""
-          echo "To deploy, download the artifact and run:"
+          echo "Download the artifact and deploy with:"
           echo "  solana program deploy keystore.so"
