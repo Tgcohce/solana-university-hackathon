@@ -16,44 +16,51 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libssl-dev
+          sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev
 
-      - name: Install Rust 1.75
-        uses: dtolnay/rust-toolchain@1.75.0
-        
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Install Solana 1.18.17
+      - name: Install Rust
         run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v1.18.17/install)"
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source "$HOME/.cargo/env"
+          rustup install 1.75.0
+          rustup default 1.75.0
+          rustc --version
+          cargo --version
+
+      - name: Install Solana
+        run: |
+          curl -sSfL https://release.solana.com/v1.18.17/solana-install-init-x86_64-unknown-linux-gnu -o solana-install-init
+          chmod +x solana-install-init
+          ./solana-install-init v1.18.17
+          rm solana-install-init
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Verify Solana installation
+        run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           solana --version
-          cargo-build-sbf --version
+          cargo-build-sbf --version || echo "cargo-build-sbf version check"
 
       - name: Build program
         run: |
-          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:$PATH"
+          source "$HOME/.cargo/env"
+          echo "Building keystore program..."
           cd programs/keystore
-          cargo-build-sbf --sbf-out-dir ../../target/deploy
+          cargo-build-sbf --sbf-out-dir ../../target/deploy 2>&1
           
-      - name: Show build results
+      - name: Verify build
         run: |
-          echo "=== Build Complete ==="
-          ls -lah target/deploy/
-          echo ""
-          echo "Program keypair:"
-          solana-keygen pubkey target/deploy/keystore-keypair.json
+          echo "=== Build Results ==="
+          ls -lah target/deploy/ || echo "No deploy directory"
+          if [ -f "target/deploy/keystore.so" ]; then
+            echo "✓ keystore.so built successfully!"
+            ls -lh target/deploy/keystore.so
+          else
+            echo "✗ Build failed - no .so file"
+            find . -name "*.so" 2>/dev/null || echo "No .so files found"
+            exit 1
+          fi
 
       - name: Upload program
         uses: actions/upload-artifact@v4
@@ -62,12 +69,17 @@ jobs:
           path: |
             target/deploy/keystore.so
             target/deploy/keystore-keypair.json
+          if-no-files-found: error
           
-      - name: Success message
+      - name: Show deploy instructions
         run: |
+          export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           echo "========================================="
           echo "✓ BUILD SUCCESSFUL!"
           echo "========================================="
           echo ""
-          echo "Download the artifact above and deploy:"
+          echo "Program ID:"
+          solana-keygen pubkey target/deploy/keystore-keypair.json
+          echo ""
+          echo "Download artifact and deploy with:"
           echo "  solana program deploy keystore.so"
