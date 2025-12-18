@@ -30,6 +30,7 @@ export default function HomeScreen() {
       // Create passkey for the user
       const username = 'mariotaning@gmail.com';
       setStatus(`Creating passkey for ${username}...`);
+      setLastSuccess('Calling Create Passkey');
       
       const credential = await createPasskey(username);
       
@@ -45,6 +46,7 @@ export default function HomeScreen() {
       }
       
       setStatus('Passkey created! Storing credential...');
+      setLastSuccess(JSON.stringify(credential, null, 2));
       
       // Store the credential
       storeCredential({

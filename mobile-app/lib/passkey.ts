@@ -147,12 +147,14 @@ async function createPasskeyNative(username: string): Promise<PasskeyCredential>
         }
         
         // Extract public key from response
-        const publicKeyBase64 = json.response?.publicKey || '';
-        const publicKeyBytes = Uint8Array.from(atob(publicKeyBase64), c => c.charCodeAt(0));
+        //const publicKeyBase64 = json.response?.publicKey || '';
+        //const publicKeyBytes = Uint8Array.from(atob(publicKeyBase64), c => c.charCodeAt(0));
 
         return {
-            publicKey: publicKeyBytes,
-            credentialId: Uint8Array.from(atob(json.rawId), c => c.charCodeAt(0)),
+            publicKey: json.response?.publicKey || '',
+            credentialId: json.rawId,
+            //publicKey: publicKeyBytes,
+            //credentialId: Uint8Array.from(atob(json.rawId), c => c.charCodeAt(0)),
             debug: {
             challenge,
             userId: "12345",
