@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use crate::error::KeystoreError;
 
 // secp256r1 precompile program ID
-anchor_lang::declare_id!("Secp256r1SigVerify1111111111111111111111111");
+pub const SECP256R1_PROGRAM_ID: Pubkey = pubkey!("Secp256r1SigVerify1111111111111111111111111");
 
 /// secp256r1 instruction data format:
 /// The instruction data contains offsets to signature, pubkey, and message
@@ -152,7 +152,7 @@ pub fn verify_secp256r1_signature(
             .map_err(|_| KeystoreError::InvalidSecp256r1Instruction)?;
         
         // Check if this is a secp256r1 instruction
-        if ix.program_id != ID {
+        if ix.program_id != SECP256R1_PROGRAM_ID {
             continue;
         }
         
@@ -250,7 +250,7 @@ pub fn build_secp256r1_instruction(
     data.extend_from_slice(message);
     
     anchor_lang::solana_program::instruction::Instruction {
-        program_id: ID,
+        program_id: SECP256R1_PROGRAM_ID,
         accounts: vec![],
         data,
     }
