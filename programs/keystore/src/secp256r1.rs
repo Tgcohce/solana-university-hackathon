@@ -64,6 +64,7 @@ impl Secp256r1InstructionData {
         instruction_data: &'a [u8],
         instructions_sysvar: &AccountInfo,
     ) -> Result<&'a [u8]> {
+        msg!("Extracting signature from secp256r1 instruction");
         if self.signature_ix_index == 0xFF {
             // Signature is in current instruction
             let start = self.signature_offset as usize;
@@ -72,6 +73,7 @@ impl Secp256r1InstructionData {
                 instruction_data.len() >= end,
                 KeystoreError::InvalidSecp256r1Instruction
             );
+            msg!("Signature extracted");
             Ok(&instruction_data[start..end])
         } else {
             // Signature is in another instruction (not implemented for simplicity)
@@ -86,6 +88,7 @@ impl Secp256r1InstructionData {
         instruction_data: &'a [u8],
         instructions_sysvar: &AccountInfo,
     ) -> Result<&'a [u8]> {
+        msg!("Extracting pubkey from secp256r1 instruction");
         if self.pubkey_ix_index == 0xFF {
             // Pubkey is in current instruction
             let start = self.pubkey_offset as usize;
@@ -94,6 +97,7 @@ impl Secp256r1InstructionData {
                 instruction_data.len() >= end,
                 KeystoreError::InvalidSecp256r1Instruction
             );
+            msg!("Pubkey extracted");
             Ok(&instruction_data[start..end])
         } else {
             // Pubkey is in another instruction (not implemented for simplicity)
@@ -108,6 +112,7 @@ impl Secp256r1InstructionData {
         instruction_data: &'a [u8],
         instructions_sysvar: &AccountInfo,
     ) -> Result<&'a [u8]> {
+        msg!("Extracting message from secp256r1 instruction");
         if self.message_ix_index == 0xFF {
             // Message is in current instruction
             let start = self.message_offset as usize;
@@ -116,6 +121,7 @@ impl Secp256r1InstructionData {
                 instruction_data.len() >= end,
                 KeystoreError::InvalidSecp256r1Instruction
             );
+            msg!("Message extracted");
             Ok(&instruction_data[start..end])
         } else {
             // Message is in another instruction (not implemented for simplicity)
@@ -138,19 +144,23 @@ pub fn verify_secp256r1_signature(
     expected_message: &[u8],
     expected_signature: &[u8; 64],
 ) -> Result<()> {
+    msg!("Verifying secp256r1 signature via precompile");
     use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
     
     // Load current instruction index
+    msg!("Loading current instruction index");
     let current_idx = ix_sysvar::load_current_index_checked(instructions_sysvar)
         .map_err(|_| KeystoreError::InvalidSecp256r1Instruction)?;
-    
+    msg!("Current instruction index: {}", current_idx);
+
     // Look backwards for secp256r1 instruction
     let mut found_valid = false;
     
     for i in (0..current_idx).rev() {
+        msg!("Checking instruction at index {}", i);
         let ix = ix_sysvar::load_instruction_at_checked(i as usize, instructions_sysvar)
             .map_err(|_| KeystoreError::InvalidSecp256r1Instruction)?;
-        
+        msg!("instruction loaded, checking");
         // Check if this is a secp256r1 instruction
         if ix.program_id != SECP256R1_PROGRAM_ID {
             continue;
@@ -166,6 +176,7 @@ pub fn verify_secp256r1_signature(
         }
         
         // Parse instruction data
+        msg!("Parsing & checking secp256r1 instruction data");
         match Secp256r1InstructionData::try_from_slice(&ix.data) {
             Ok(parsed) => {
                 // Extract components
@@ -204,6 +215,10 @@ pub fn verify_secp256r1_signature(
                     msg!("Found valid matching secp256r1 instruction");
                     found_valid = true;
                     break;
+                }
+                else {
+                    msg!("Failed to extract secp256r1 components");
+                    continue;
                 }
             }
             Err(e) => {

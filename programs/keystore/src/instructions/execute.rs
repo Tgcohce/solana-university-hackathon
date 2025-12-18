@@ -37,6 +37,10 @@ pub fn handler(
     sigs: Vec<SignatureData>,
 ) -> Result<()> {
     let identity = &mut ctx.accounts.identity;
+
+    msg!("execute");
+    msg!("Action: {:?}", action);
+    msg!("signatures: {:?}", sigs);
     
     // Validate signatures array
     require!(
@@ -50,9 +54,13 @@ pub fn handler(
         KeystoreError::ThresholdNotMet
     );
     
+    msg!("checking duplicate key indices");
     // Check for duplicate key indices
     let mut used_keys = std::collections::HashSet::new();
     for sig in &sigs {
+        msg!("sig key index: {}", sig.key_index);
+        msg!("signature: {:?}", sig.signature);
+        msg!("sig recovery id: {}", sig.recovery_id);
         require!(
             used_keys.insert(sig.key_index),
             KeystoreError::SignatureVerificationFailed
@@ -60,25 +68,30 @@ pub fn handler(
     }
     
     // Build message that was signed (action + nonce)
+    msg!("building the signed message");
     let message = build_message(&action, identity.nonce)?;
     
     // Verify each signature via secp256r1 precompile introspection
+    msg!("verifying signatures");
     for sig in &sigs {
         let key = identity.keys
             .get(sig.key_index as usize)
             .ok_or(KeystoreError::InvalidKeyIndex)?;
         
+        msg!("verifying signature for key index {}", sig.key_index);
         secp256r1::verify_secp256r1_signature(
             &ctx.accounts.instructions,
             &key.pubkey,
             &message,
             &sig.signature,
         )?;
+        msg!("signature verification passed");
     }
     
     // Increment nonce (before execution to prevent reentrancy)
     identity.nonce += 1;
     
+    msg!("executing action");
     // Execute action
     match action {
         Action::Send { to, lamports } => {
