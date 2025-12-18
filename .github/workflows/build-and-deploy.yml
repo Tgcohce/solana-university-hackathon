@@ -18,8 +18,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config libssl-dev libudev-dev wget bzip2
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust 1.75
+        uses: dtolnay/rust-toolchain@1.75.0
 
       - name: Download Solana 1.18.22
         run: |
@@ -30,23 +30,28 @@ jobs:
           rm -rf solana-release solana.tar.bz2
           echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
-      - name: Fix dependency versions
+      - name: Fix dependencies
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           
-          # Generate Cargo.lock first
+          # Remove any existing Cargo.lock (might be version 4)
+          rm -f Cargo.lock
+          
+          # Generate fresh Cargo.lock with Rust 1.75 (creates version 3)
           cargo generate-lockfile
           
-          # Downgrade borsh to version compatible with Rust 1.75
-          echo "Downgrading borsh..."
-          cargo update -p borsh@1.6.0 --precise 1.5.1
+          # Verify it's version 3
+          head -5 Cargo.lock
           
-          # Downgrade other potentially incompatible deps
-          cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
-          cargo update -p hashbrown --precise 0.14.5 2>/dev/null || true
+          # Downgrade borsh
+          cargo update -p borsh@1.6.0 --precise 1.5.1 || cargo update -p borsh --precise 1.5.1 || true
           
-          echo "Cargo.lock updated"
-          grep -A1 'name = "borsh"' Cargo.lock | head -4
+          # Downgrade other deps that might need newer Rust
+          cargo update -p indexmap --precise 2.2.6 || true
+          cargo update -p hashbrown --precise 0.14.5 || true
+          cargo update -p zerocopy --precise 0.7.32 || true
+          
+          echo "Dependencies fixed"
 
       - name: Build program
         run: |
