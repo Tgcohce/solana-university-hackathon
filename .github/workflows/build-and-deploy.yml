@@ -34,36 +34,40 @@ jobs:
         run: |
           export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"
           
-          # Remove existing Cargo.lock
           rm -f Cargo.lock
-          
-          # Generate fresh Cargo.lock
           cargo generate-lockfile
           
-          # Downgrade all packages that require Rust > 1.75
-          # borsh 1.6.0 requires 1.77
-          cargo update -p borsh --precise 1.5.1 || true
+          # Keep running updates until no more changes
+          echo "=== Downgrading dependencies ==="
+          
+          # indexmap 2.7+ requires 1.82, use 2.2.6
+          cargo update -p indexmap@2.12.1 --precise 2.2.6 2>/dev/null || \
+          cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
+          
+          # borsh 1.6 requires 1.77
+          cargo update -p borsh@1.6.0 --precise 1.5.1 2>/dev/null || \
+          cargo update -p borsh --precise 1.5.1 2>/dev/null || true
           
           # toml_datetime 0.7.4 requires 1.76
-          cargo update -p toml_datetime --precise 0.6.5 || true
+          cargo update -p toml_datetime@0.7.4 --precise 0.6.5 2>/dev/null || \
+          cargo update -p toml_datetime --precise 0.6.5 2>/dev/null || true
           
-          # toml_edit might also need downgrade
-          cargo update -p toml_edit --precise 0.21.1 || true
+          # toml_edit pulls in toml_datetime
+          cargo update -p toml_edit --precise 0.21.1 2>/dev/null || true
           
-          # indexmap 2.7+ requires newer Rust
-          cargo update -p indexmap --precise 2.2.6 || true
+          # proc-macro-crate pulls in toml stuff
+          cargo update -p proc-macro-crate --precise 2.0.0 2>/dev/null || true
           
-          # hashbrown might need downgrade
-          cargo update -p hashbrown --precise 0.14.3 || true
+          # hashbrown
+          cargo update -p hashbrown --precise 0.14.3 2>/dev/null || true
           
-          # zerocopy might need downgrade  
-          cargo update -p zerocopy --precise 0.7.32 || true
+          # Run again to catch transitive deps
+          cargo update -p indexmap --precise 2.2.6 2>/dev/null || true
+          cargo update -p borsh --precise 1.5.1 2>/dev/null || true
+          cargo update -p toml_datetime --precise 0.6.5 2>/dev/null || true
           
-          # winnow might need downgrade
-          cargo update -p winnow --precise 0.5.40 || true
-          
-          echo "=== Dependency versions ==="
-          grep -E "^(name|version)" Cargo.lock | head -40
+          echo "=== Checking versions ==="
+          grep -E "name = \"(indexmap|borsh|toml_datetime)\"" Cargo.lock -A1 | head -20
 
       - name: Build program
         run: |
