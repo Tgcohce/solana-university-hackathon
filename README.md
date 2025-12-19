@@ -1,292 +1,280 @@
-# Keystore - Biometric Solana Wallet
+# Keystore - Passkey Multi-Sig Wallet for Solana
 
-A passkey-based multi-signature wallet for Solana using the secp256r1 precompile. No seed phrases, just your face or fingerprint.
+🏆 **Hackathon Project** - A Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile (SIMD-0075).
 
-## 🎯 Project Overview
+## 🎯 The Demo
 
-Keystore is an infrastructure platform that enables any mobile app to integrate biometric-authenticated Solana wallets. Built for the Solana University Hackathon, it demonstrates how the secp256r1 precompile (SIMD-0075) can eliminate seed phrases and provide true Web3 UX.
+1. User creates wallet with FaceID → no seed phrase needed
+2. Adds phone as backup device → multi-device support
+3. Sends SOL with biometrics → secure transactions
+4. Enables 2-of-2 for high-value transactions → multi-sig security
+5. Judge tries it on their own device → mind blown! 🤯
 
-## 🚀 Quick Start
+## ✨ Features
 
-### For Judges/Reviewers
+- **No Seed Phrases**: Keys stored in device's secure enclave
+- **Biometric Auth**: FaceID/TouchID for all transactions
+- **Multi-Device Support**: Add up to 5 devices as backup
+- **Multi-Sig**: Configurable threshold signatures
+- **secp256r1**: Uses the new Solana precompile for passkey verification
+- **Modern UI**: Beautiful, responsive interface with Tailwind CSS
 
-**Mobile Demo (Primary):**
-```bash
-cd mobile
-npm install
-npm run android  # Requires Android device with biometrics
-```
-
-**Web Demo (Alternative):**
-```bash
-cd app
-npm install
-npm run dev
-# Open https://localhost:3000 (HTTPS required for WebAuthn)
-```
-
-**View Demo Script:** See `mobile/DEMO_SCRIPT.md` for the complete hackathon presentation flow.
-
-## 📱 Mobile App (Android)
-
-The primary demo is a polished React Native Android app showcasing biometric wallet functionality.
-
-### Features
-
-- ✅ **Biometric Authentication**: FaceID, TouchID, or fingerprint
-- ✅ **Hardware Security**: Keys stored in Android Keystore (secure enclave)
-- ✅ **Multi-Device Support**: Add backup devices via QR codes
-- ✅ **Gasless Transactions**: Optional relayer for fee sponsorship
-- ✅ **On-Chain Verification**: Solana secp256r1 precompile
-- ✅ **Developer SDK**: 10-line integration for any React Native app
-
-### Architecture
-
-```
-┌─────────────────────────────────────────┐
-│         React Native App                │
-├─────────────────────────────────────────┤
-│  Keystore SDK                           │
-│  ┌──────────────┐  ┌─────────────────┐ │
-│  │  Biometric   │  │  Solana Client  │ │
-│  │   Manager    │  │                 │ │
-│  └──────────────┘  └─────────────────┘ │
-└─────────────────────────────────────────┘
-           │                    │
-           ▼                    ▼
-┌──────────────────┐  ┌──────────────────┐
-│  Android         │  │  Solana          │
-│  Keystore        │  │  Blockchain      │
-│  (secp256r1)     │  │  (Precompile)    │
-└──────────────────┘  └──────────────────┘
-```
-
-### SDK Documentation
-
-See `mobile/SDK_README.md` for complete SDK documentation and integration examples.
-
-**Quick Example:**
-```typescript
-import { KeystoreSDK } from '@keystore/react-native-sdk';
-
-const sdk = new KeystoreSDK({
-  rpcUrl: 'https://api.devnet.solana.com',
-});
-
-// Create wallet with biometrics
-await sdk.createWallet('My Phone');
-
-// Send transaction with biometric confirmation
-await sdk.sendTransaction({
-  to: recipientAddress,
-  amount: 0.1, // SOL
-});
-```
-
-## 🔐 Solana Program
-
-The on-chain program handles identity management, multi-sig, and secp256r1 signature verification.
-
-### Program ID
-```
-Devnet: 4DS5K64SuWK6PmN1puZVtPouLWCqQDA3aE58MPPuDXu2
-```
-
-### Instructions
-
-1. **create_identity**: Initialize wallet with first biometric key
-2. **add_key**: Add backup device
-3. **execute**: Send SOL or set multi-sig threshold
-4. **register_credential**: Store passkey credential ID on-chain
-
-### Build & Deploy
-
-```bash
-# Build (use WSL on Windows)
-wsl bash -c 'cd /mnt/c/path/to/project && source ~/.cargo/env && anchor build'
-
-# Deploy
-anchor deploy --provider.cluster devnet
-```
-
-## 🌐 Web App (Alternative Demo)
-
-A Next.js web app demonstrating WebAuthn integration (browser-based passkeys).
-
-### Setup
-
-```bash
-cd app
-npm install
-npm run dev
-```
-
-**Note:** Requires HTTPS (localhost works). Test on Chrome/Safari with biometric hardware.
-
-## 💼 Infrastructure Pitch
-
-### For Developers
-
-**Problem:** Web3 onboarding is broken. Users hate seed phrases.
-
-**Solution:** Keystore SDK - biometric wallets in 10 lines of code.
-
-**Use Cases:**
-- Gaming apps (no seed phrases for gamers)
-- Social apps (tipping, payments)
-- E-commerce (crypto checkout)
-- DeFi (mobile-first interfaces)
-
-### Business Model
-
-- **Transaction Fees**: 0.1% on relayer
-- **Enterprise SDK**: $99-$999/month tiers
-- **White-Label**: Custom pricing
-- **API Usage**: Tiered pricing
-
-### Competitive Advantages
-
-1. **Non-Custodial**: Users control keys (in hardware)
-2. **No Seed Phrases**: Biometrics + multi-device recovery
-3. **Gasless UX**: Relayer sponsors fees
-4. **Developer-First**: Simple SDK, great docs
-5. **Solana Native**: Built on secp256r1 precompile
-
-## 🛠️ Technical Details
-
-### How It Works
-
-1. **Key Generation**: Device generates secp256r1 keypair in secure hardware
-2. **Registration**: Compressed public key (33 bytes) stored on-chain
-3. **Transaction Signing**: User authenticates with biometrics → device signs transaction
-4. **On-Chain Verification**: Solana secp256r1 precompile verifies signature
-5. **Execution**: Transaction executes if threshold met
-
-### Security
-
-- **Hardware-Backed Keys**: Never leave secure enclave
-- **Biometric Protection**: Keys only accessible with biometrics
-- **Nonce-Based Replay Protection**: Each transaction has unique nonce
-- **Multi-Sig Support**: Require multiple devices for high-value transactions
-- **On-Chain Verification**: Trustless - no reliance on external servers
-
-### Why secp256r1?
-
-- **Passkey Standard**: WebAuthn/FIDO2 use secp256r1 (P-256)
-- **Hardware Support**: Built into secure enclaves (Apple, Android)
-- **Solana Precompile**: SIMD-0075 enables on-chain verification
-- **No Custodial Workarounds**: Fully trustless
-
-## 📂 Project Structure
+## 🏗️ Project Structure
 
 ```
 keystore/
 ├── programs/keystore/          # Solana program (Anchor)
-│   ├── src/
-│   │   ├── lib.rs             # Program entry point
-│   │   ├── state.rs           # Account structures
-│   │   ├── instructions/      # Instruction handlers
-│   │   └── secp256r1.rs       # Signature verification
-│   └── Cargo.toml
-├── mobile/                     # React Native Android app (PRIMARY DEMO)
-│   ├── src/
-│   │   ├── sdk/               # Keystore SDK (reusable)
-│   │   ├── screens/           # App screens
-│   │   └── navigation/        # Navigation setup
-│   ├── SDK_README.md          # SDK documentation
-│   ├── DEMO_SCRIPT.md         # Hackathon demo script
-│   └── package.json
-├── app/                        # Next.js web app (alternative demo)
-│   ├── src/
-│   │   ├── lib/               # Client SDK
-│   │   └── app/               # UI components
-│   └── package.json
-├── relayer/                    # Transaction relayer (optional)
-│   └── src/index.ts
-└── README.md                   # This file
+│   └── src/
+│       ├── lib.rs             # Program entrypoint
+│       ├── state.rs           # Account structures
+│       ├── error.rs           # Custom errors
+│       └── instructions/      # Instruction handlers
+├── app/                       # Next.js frontend
+│   └── src/
+│       ├── app/              # Pages and layout
+│       ├── lib/              # Client libraries
+│       │   ├── passkey.ts   # WebAuthn integration
+│       │   ├── keystore.ts  # On-chain client
+│       │   └── solana.ts    # Solana utilities
+│       └── components/       # React components
+├── tests/                    # Anchor tests
+├── Anchor.toml              # Anchor configuration
+└── README.md                # This file
 ```
 
-## 🎬 Demo Flow (5 minutes)
+## 🚀 Quick Start
 
-See `mobile/DEMO_SCRIPT.md` for the complete presentation script.
+### Prerequisites
 
-**Quick Flow:**
-1. Create wallet with biometrics (10 seconds)
-2. Receive SOL (show QR code)
-3. Send SOL with biometric confirmation
-4. Add backup device via QR code
-5. Show multi-device access
-6. Pitch SDK to judges
+- Node.js 18+ and npm/yarn
+- Rust 1.70+
+- Solana CLI 1.18+
+- Anchor 0.30.1
+- A device with FaceID/TouchID or security key
 
-## 🧪 Testing
-
-### Mobile App
+### 1. Install Dependencies
 
 ```bash
-cd mobile
+# Install Anchor dependencies
 npm install
-npm run android  # Physical device recommended
+
+# Install frontend dependencies
+cd app
+npm install
+cd ..
 ```
 
-**Test Checklist:**
-- [ ] Wallet creation with biometrics
-- [ ] Balance display
-- [ ] Send transaction
-- [ ] Receive (QR code)
-- [ ] Add backup device
-- [ ] Multi-device access
+### 2. Build & Deploy Program
 
-### Solana Program
+```bash
+# Build the program
+anchor build
+
+# Deploy to devnet
+anchor deploy --provider.cluster devnet
+
+# Copy the program ID
+solana address -k target/deploy/keystore-keypair.json
+```
+
+### 3. Update Program ID
+
+Update the program ID in:
+- `programs/keystore/src/lib.rs` (line 10)
+- `app/src/lib/keystore.ts` (line 8)
+- `Anchor.toml` (line 7)
+
+```rust
+// In lib.rs
+declare_id!("YOUR_PROGRAM_ID_HERE");
+```
+
+```typescript
+// In keystore.ts
+export const PROGRAM_ID = new PublicKey("YOUR_PROGRAM_ID_HERE");
+```
+
+### 4. Run Frontend
+
+```bash
+cd app
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 5. Test the Wallet
+
+1. Click "Create with Face ID"
+2. Authenticate with your device's biometrics
+3. Click "Airdrop" to get devnet SOL
+4. Click "Send" and enter a recipient address
+5. Authenticate again to sign the transaction
+6. 🎉 Transaction sent!
+
+## 🧪 Running Tests
 
 ```bash
 anchor test
 ```
 
-## 📊 Metrics
+## 📱 Browser Compatibility
 
-- **Wallet Creation**: ~10 seconds
-- **Transaction Signing**: ~2 seconds (biometric prompt)
-- **SDK Integration**: 10 lines of code
-- **Security**: Hardware-backed, non-custodial
-- **UX**: Zero seed phrases
+Passkeys require WebAuthn support:
+- ✅ Chrome/Edge 109+
+- ✅ Safari 16+
+- ✅ Firefox 119+
+- ✅ iOS Safari 16+
+- ✅ Android Chrome 109+
 
-## 🔗 Links
+## 🔐 Security
 
-- **GitHub**: https://github.com/Tgcohce/solana-university-hackathon
-- **Program ID**: `4DS5K64SuWK6PmN1puZVtPouLWCqQDA3aE58MPPuDXu2`
-- **Demo Video**: [Coming soon]
+- **Secure Enclave**: Private keys never leave your device
+- **Biometric Auth**: FaceID/TouchID required for all transactions
+- **Multi-Sig**: Require multiple devices to approve high-value transactions
+- **No Seed Phrases**: Nothing to write down or lose
+- **secp256r1**: Industry-standard elliptic curve used by passkeys
 
-## 🏆 Hackathon Highlights
+## 🏗️ How It Works
 
-### Innovation
+### 1. Wallet Creation
+```
+User triggers creation
+  → Browser generates secp256r1 keypair in secure enclave
+  → Public key sent to Solana program
+  → PDA created with vault for holding funds
+  → Credential ID stored in localStorage
+```
 
-- First to build on Solana's secp256r1 precompile (SIMD-0075)
-- Eliminates seed phrases with hardware-backed biometrics
-- Infrastructure play - SDK for any developer
+### 2. Transaction Signing
+```
+User initiates transaction
+  → Browser prompts for biometrics
+  → Secure enclave signs transaction with secp256r1
+  → Signature sent to Solana program
+  → Program verifies via secp256r1 precompile
+  → Transaction executed if threshold met
+```
 
-### Technical Execution
+### 3. On-Chain Verification
+```
+execute instruction
+  → Check signatures meet threshold
+  → Build message (action + nonce)
+  → Verify secp256r1 signatures via precompile
+  → Execute action (send SOL, set threshold, etc.)
+  → Increment nonce
+```
 
-- ✅ Working Solana program with signature verification
-- ✅ Complete mobile app with biometric authentication
-- ✅ Multi-device support with QR pairing
-- ✅ Developer SDK with documentation
-- ✅ Demo script for judges
+## 📝 Program Instructions
 
-### Business Potential
+### `create_identity`
+Creates a new identity with the first passkey.
 
-- Clear revenue model (transaction fees, licensing)
-- Large addressable market (all mobile apps)
-- Solves real problem (Web3 UX)
-- Developer-first approach
+**Accounts:**
+- `payer`: Signer who pays for account creation
+- `identity`: PDA storing keys and settings
+- `vault`: PDA for holding funds
 
-## 📝 License
+**Args:**
+- `pubkey`: 33-byte compressed secp256r1 public key
+- `device_name`: Human-readable device name
 
-MIT License - see LICENSE file
+### `add_key`
+Adds a new passkey to an existing identity.
 
-## 👥 Team
+**Accounts:**
+- `authority`: Identity owner
+- `identity`: Identity account to update
 
-Built for Solana University Hackathon
+**Args:**
+- `new_pubkey`: New public key to add
+- `device_name`: Device name
+
+### `execute`
+Executes an action with signature verification.
+
+**Accounts:**
+- `identity`: Identity account
+- `vault`: Vault PDA
+- `recipient`: Optional recipient account
+- `instructions`: Sysvar for precompile verification
+- `system_program`: System program
+
+**Args:**
+- `action`: Action to execute (Send or SetThreshold)
+- `sigs`: Array of signatures with key indices
+
+## 🎨 UI Features
+
+- **Gradient Balance Card**: Shows current balance prominently
+- **Copy/Explorer Buttons**: Easy access to address and blockchain explorer
+- **Send Modal**: Beautiful modal for sending SOL with biometric confirmation
+- **Security Dashboard**: Shows registered keys and threshold settings
+- **Real-time Updates**: Balance updates every 5 seconds
+- **Success/Error Toasts**: Clear feedback for all actions
+- **Responsive Design**: Works on mobile and desktop
+
+## 🛠️ Tech Stack
+
+**On-Chain:**
+- Anchor 0.30.1
+- Solana 1.18
+- secp256r1 precompile
+
+**Frontend:**
+- Next.js 14
+- React 18
+- TypeScript
+- Tailwind CSS
+- Lucide Icons
+- @solana/web3.js
+
+## 🔮 Future Enhancements
+
+- [ ] Session keys for gasless transactions
+- [ ] Social recovery with guardian keys
+- [ ] Transaction batching
+- [ ] Token support (SPL tokens, NFTs)
+- [ ] Mobile app with React Native
+- [ ] Hardware wallet integration
+- [ ] Multi-chain support (Ethereum, etc.)
+- [ ] Account abstraction
+
+## 🐛 Known Limitations
+
+- **Devnet Only**: Currently configured for Solana devnet
+- **Demo Relayer**: Uses airdrop instead of proper relayer
+- **Simplified Verification**: secp256r1 verification is stubbed for demo
+- **No Transaction History**: History not yet implemented
+- **Single Key Only**: Multi-key support partially implemented
+
+## 📄 License
+
+MIT License - feel free to use this code for your own projects!
+
+## 🙏 Acknowledgments
+
+- Solana Foundation for the hackathon
+- SIMD-0075 for the secp256r1 precompile
+- WebAuthn community for passkey standards
+- Anchor framework for making Solana development easier
+
+## 🎥 Demo Video
+
+[Link to demo video - to be added]
+
+## 🌐 Live Demo
+
+[Link to live deployment - to be added]
+
+## 📧 Contact
+
+Built with ❤️ for the Solana University Hackathon
 
 ---
 
-**"Your face is your wallet. No seed phrases. No compromises."**
+**Remember**: This is a hackathon demo. For production use, implement proper relayer infrastructure, complete secp256r1 verification, and add comprehensive testing.
+
+**Judge Instructions**: Just open the app, click "Create with Face ID", and you'll have a working Solana wallet in 5 seconds. No seed phrase to write down. That's it! 🚀
+

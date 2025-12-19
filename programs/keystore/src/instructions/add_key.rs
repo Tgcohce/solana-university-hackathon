@@ -25,14 +25,19 @@ pub fn handler(
     
     // Validate input
     require!(
-        device_name.len() <= 32 && !device_name.is_empty(),
-        KeystoreError::InvalidDeviceName
+        device_name.len() <= 32,
+        KeystoreError::InvalidArgument
+    );
+    
+    require!(
+        !device_name.is_empty(),
+        KeystoreError::InvalidArgument
     );
     
     // Validate pubkey (compressed secp256r1: must start with 0x02 or 0x03)
     require!(
         new_pubkey[0] == 0x02 || new_pubkey[0] == 0x03,
-        KeystoreError::InvalidPublicKeyFormat
+        KeystoreError::InvalidPublicKey
     );
     
     require!(

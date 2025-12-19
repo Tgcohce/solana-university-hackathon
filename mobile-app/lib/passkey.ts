@@ -91,14 +91,15 @@ async function createPasskeyNative(username: string): Promise<PasskeyCredential>
     const hostname = bundleId?.replaceAll("web.com", "web.app")?.replaceAll("_", "-");
     console.log("hostname", hostname);
 
+    // For Android, we can use the app's package name or a verified domain
+    // For now, let's not specify an RP ID to use the default (app package)
     const rp = {
-        // id: Platform.select({
-        //     web: undefined,
-        //     ios: hostname,
-        //     android: hostname,
-        // }),
-        id: "solana-university-hackathon.vercel.app",
-        name: "ReactNativePasskeys",
+        id: Platform.select({
+            web: undefined,
+            ios: hostname,
+            android: undefined, // Use default (package name)
+        }),
+        name: "Keystore Wallet",
     } satisfies PublicKeyCredentialRpEntity;
 
     // Don't do this in production!
@@ -325,7 +326,9 @@ async function signWithPasskeyNative(
   
   const result = await RNPasskeys.get({
     challenge: challengeBase64,
-    rpId: 'solana-university-hackathon.vercel.app', // Must match creation
+    // rpId should match what was used during creation
+    // For Android without domain association, omit rpId to use package name
+    rpId: Platform.OS === 'android' ? undefined : 'solana-university-hackathon.vercel.app',
     timeout: 60000,
     userVerification: 'required',
   });

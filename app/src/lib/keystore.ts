@@ -237,6 +237,7 @@ export class KeystoreClient {
       type: "send";
       to: PublicKey;
       lamports: number;
+      nonce: number;
       pubkey: Uint8Array;  // The secp256r1 public key that signed
       signatures: { keyIndex: number; signature: Uint8Array }[];
     },
@@ -244,14 +245,8 @@ export class KeystoreClient {
   ): Promise<string> {
     const actualPayer = payer || await this.getFundedKeypair();
     
-    // Fetch current nonce from on-chain identity account
-    const identityAccount = await this.getIdentity(identity);
-    if (!identityAccount) {
-      throw new Error("Identity account not found");
-    }
-    
     // Build the message that was signed (action + nonce)
-    const message = this.buildMessage({ type: "send", to: params.to, lamports: params.lamports }, identityAccount.nonce);
+    const message = this.buildMessage({ type: "send", to: params.to, lamports: params.lamports }, params.nonce);
     
     // Build REAL secp256r1 verify instruction for each signature
     // Each signature needs its own verification instruction
@@ -324,48 +319,15 @@ export class KeystoreClient {
       const account = await this.connection.getAccountInfo(identityPDA);
       if (!account) return null;
       
-      // Parse account data (Anchor discriminator is first 8 bytes)
+      // Parse account data (simplified for demo)
+      // In production, use Anchor's IDL-based deserialization
       const data = account.data;
-      let offset = 8; // Skip discriminator
-      
-      const bump = data[offset++];
-      const vaultBump = data[offset++];
-      const threshold = data[offset++];
-      
-      // Read nonce (u64, little-endian)
-      const nonce = Number(new DataView(data.buffer, data.byteOffset + offset).getBigUint64(0, true));
-      offset += 8;
-      
-      // Read keys vector (u32 length prefix + items)
-      const keysLen = new DataView(data.buffer, data.byteOffset + offset).getUint32(0, true);
-      offset += 4;
-      
-      const keys = [];
-      for (let i = 0; i < keysLen; i++) {
-        // Each RegisteredKey: pubkey (33 bytes) + name (String) + added_at (i64)
-        const pubkey = data.slice(offset, offset + 33);
-        offset += 33;
-        
-        // String: u32 length + UTF-8 bytes
-        const nameLen = new DataView(data.buffer, data.byteOffset + offset).getUint32(0, true);
-        offset += 4;
-        const nameBytes = data.slice(offset, offset + nameLen);
-        const name = new TextDecoder().decode(nameBytes);
-        offset += nameLen;
-        
-        // i64 timestamp
-        const addedAt = Number(new DataView(data.buffer, data.byteOffset + offset).getBigInt64(0, true));
-        offset += 8;
-        
-        keys.push({ pubkey, name, addedAt });
-      }
-      
       return {
-        bump,
-        vaultBump,
-        threshold,
-        nonce,
-        keys,
+        bump: data[8],
+        vaultBump: data[9],
+        threshold: data[10],
+        nonce: Number(new DataView(data.buffer).getBigUint64(11, true)),
+        keys: [], // TODO: Parse keys vector
       };
     } catch (e) {
       console.error("Failed to fetch identity:", e);
@@ -379,13 +341,34 @@ export class KeystoreClient {
     const keypair = Keypair.generate();
     
     try {
+      console.log("Requesting airdrop for:", keypair.publicKey.toBase58());
       const signature = await this.connection.requestAirdrop(
         keypair.publicKey,
         1000000000 // 1 SOL
       );
-      await this.connection.confirmTransaction(signature);
-    } catch (e) {
+      
+      // Wait for confirmation with retries
+      const latestBlockhash = await this.connection.getLatestBlockhash();
+      await this.connection.confirmTransaction({
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      }, 'confirmed');
+      
+      // Verify balance
+      const balance = await this.connection.getBalance(keypair.publicKey);
+      console.log("Airdrop successful, balance:", balance / 1e9, "SOL");
+      
+      if (balance === 0) {
+        throw new Error("Airdrop completed but balance is still 0");
+      }
+    } catch (e: any) {
       console.error("Airdrop failed:", e);
+      throw new Error(
+        "Failed to fund transaction payer. " +
+        "Devnet airdrop may be rate limited. " +
+        "Please try again in a few moments or use a pre-funded keypair."
+      );
     }
     
     return keypair;

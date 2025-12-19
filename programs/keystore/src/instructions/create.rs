@@ -3,6 +3,7 @@ use crate::state::*;
 use crate::error::KeystoreError;
 
 #[derive(Accounts)]
+#[instruction(pubkey: [u8; 33])]
 pub struct CreateIdentity<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -11,7 +12,7 @@ pub struct CreateIdentity<'info> {
         init,
         payer = payer,
         space = 8 + Identity::SIZE,
-        seeds = [b"identity", payer.key().as_ref()],
+        seeds = [b"identity", &pubkey[1..]],
         bump,
     )]
     pub identity: Account<'info, Identity>,
@@ -31,21 +32,28 @@ pub fn handler(
     pubkey: [u8; 33],
     device_name: String,
 ) -> Result<()> {
+    msg!("create identity");
     let identity = &mut ctx.accounts.identity;
     let clock = Clock::get()?;
     
     // Validate input
     require!(
-        device_name.len() <= 32 && !device_name.is_empty(),
-        KeystoreError::InvalidDeviceName
+        device_name.len() <= 32,
+        KeystoreError::InvalidArgument
+    );
+    
+    require!(
+        !device_name.is_empty(),
+        KeystoreError::InvalidArgument
     );
     
     // Validate pubkey (compressed secp256r1: must start with 0x02 or 0x03)
     require!(
         pubkey[0] == 0x02 || pubkey[0] == 0x03,
-        KeystoreError::InvalidPublicKeyFormat
+        KeystoreError::InvalidPublicKey
     );
     
+    msg!("identity pubkey: {:?}", pubkey);
     identity.bump = ctx.bumps.identity;
     identity.vault_bump = ctx.bumps.vault;
     identity.threshold = 1;

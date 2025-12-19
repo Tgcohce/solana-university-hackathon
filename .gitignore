@@ -1,16 +1,33 @@
-# Dependencies
+# Anchor
+.anchor
+target/
+**/*.rs.bk
 node_modules/
-.pnp
-.pnp.js
+test-ledger/
+.DS_Store
 
-# Testing
-coverage/
+# IDL
+target/idl/
+target/types/
+
+# Keys
+!tsconfig.json
+!package.json
+!package-lock.json
 
 # Next.js
-.next/
-out/
-build/
-dist/
+app/.next/
+app/out/
+app/build/
+app/dist/
+
+# Dependencies
+app/node_modules/
+app/.pnp
+app/.pnp.js
+
+# Testing
+app/coverage/
 
 # Misc
 .DS_Store
@@ -26,19 +43,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Solana
-.anchor/
-target/
-test-ledger/
-**/*.so
-**/*.so.*
-
-# IDEs
-.vscode/
+# IDE
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/
+*.iml
 
 # OS
 Thumbs.db
+

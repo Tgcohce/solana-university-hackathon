@@ -4,10 +4,14 @@ import { useState, useEffect } from "react";
 import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { Fingerprint, Plus, Send, Shield, Loader2, Copy, ExternalLink, CheckCircle2 } from "lucide-react";
 import { createPasskey, signWithPasskey, getStoredCredential, storeCredential } from "@/lib/passkey";
-import { KeystoreClient, getIdentityPDA, getVaultPDA } from "@/lib/keystore";
+import { getIdentityPDA, getVaultPDA } from "@/lib/keystore";
+import { createIdentity, parseCreateIdentityResponse, executeTransaction, getIdentityInfo } from "@/lib/api";
 import { formatAddress, lamportsToSOL } from "@/lib/solana";
+import { buildMessage } from "@/lib/message";
+import { KeystoreClient } from "@/lib/keystore-client";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+const keystoreClient = new KeystoreClient(connection);
 
 export default function Home() {
   const [status, setStatus] = useState<"disconnected" | "creating" | "connected">("disconnected");
@@ -39,18 +43,27 @@ export default function Home() {
   async function checkExistingWallet() {
     const stored = getStoredCredential();
     if (stored) {
-      const [identityPDA] = getIdentityPDA(new PublicKey(stored.owner));
-      const [vaultPDA] = getVaultPDA(identityPDA);
+      console.log("Identity:", stored.owner);
+      console.log("Public Key:", stored.publicKey);
+      console.log("Credential ID:", stored.credentialId);
+      const identityPDA = new PublicKey(stored.owner);
+      const vaultPDA = keystoreClient.getVaultPDA(identityPDA);
       setIdentity(identityPDA);
       setVault(vaultPDA);
       setStatus("connected");
       
-      // Fetch account data
-      const client = new KeystoreClient(connection);
-      const identityAccount = await client.getIdentity(identityPDA);
-      if (identityAccount) {
-        setThreshold(identityAccount.threshold);
+      // Fetch account data via API
+      try {
+        const identityInfo = await getIdentityInfo(stored.owner);
+        setThreshold(identityInfo.threshold);
         // For demo, just show the stored credential
+        setKeys([{ 
+          name: "This Device", 
+          pubkey: Buffer.from(stored.publicKey).toString("hex").slice(0, 16) + "..." 
+        }]);
+      } catch (e) {
+        console.error("Failed to fetch identity info:", e);
+        // Still show connected with default values
         setKeys([{ 
           name: "This Device", 
           pubkey: Buffer.from(stored.publicKey).toString("hex").slice(0, 16) + "..." 
@@ -79,28 +92,65 @@ export default function Home() {
       }
 
       const deviceName = getDeviceName();
+      console.log("Creating passkey...");
       const credential = await createPasskey("keystore-user");
-      
-      // Create identity on-chain
-      const client = new KeystoreClient(connection);
-      const { tx, identity: newIdentity, vault: newVault } = await client.createIdentity(
-        credential.publicKey,
-        deviceName
-      );
-      
-      // Store credential locally
-      storeCredential({
-        credentialId: Array.from(credential.credentialId),
-        publicKey: Array.from(credential.publicKey),
-        owner: newIdentity.toBase58(),
+      console.log("Passkey created:", {
+        publicKeyLength: credential.publicKey.length,
+        credentialIdLength: credential.credentialId.length,
       });
       
-      setIdentity(newIdentity);
-      setVault(newVault);
-      setKeys([{ name: deviceName, pubkey: Buffer.from(credential.publicKey).toString("hex").slice(0, 16) + "..." }]);
-      setStatus("connected");
-      setSuccess("Wallet created successfully!");
-      setTimeout(() => setSuccess(null), 5000);
+      // Create identity on-chain via API
+      console.log("Creating identity on-chain via API...");
+      console.log("Public key length:", credential.publicKey.length);
+      
+      // Validate public key is 33 bytes
+      if (credential.publicKey.length !== 33) {
+        throw new Error(`Invalid public key length: expected 33 bytes, got ${credential.publicKey.length}`);
+      }
+
+      try {
+        const response = await createIdentity(credential.publicKey, deviceName);
+        console.log("Identity created on-chain:", response);
+        const { identity: newIdentity, vault: newVault, signature } = parseCreateIdentityResponse(response);
+        
+        console.log("Identity created:", {
+          tx: signature,
+          identity: newIdentity.toBase58(),
+          vault: newVault.toBase58(),
+        });
+        
+        // Store credential locally
+        storeCredential({
+          credentialId: Array.from(credential.credentialId),
+          publicKey: Array.from(credential.publicKey),
+          owner: newIdentity.toBase58(),
+        });
+        
+        setIdentity(newIdentity);
+        setVault(newVault);
+        setKeys([{ name: deviceName, pubkey: Buffer.from(credential.publicKey).toString("hex").slice(0, 16) + "..." }]);
+        setStatus("connected");
+        setSuccess("Wallet created successfully!");
+        setTimeout(() => setSuccess(null), 5000);
+      } catch (apiError: any) {
+        console.error("API error:", apiError);
+        
+        // Check if it's a funding issue
+        if (apiError.message?.includes("debit") || apiError.message?.includes("credit") || apiError.message?.includes("airdrop")) {
+          throw new Error(
+            "⚠️ Devnet Setup Required\n\n" +
+            "The Solana program needs to be deployed and funded on devnet.\n\n" +
+            "Steps:\n" +
+            "1. Deploy the program: anchor deploy\n" +
+            "2. Fund your wallet with devnet SOL\n" +
+            "3. Try again\n\n" +
+            "See DEPLOYMENT_GUIDE.md for details.\n\n" +
+            "Your passkey was created successfully and can be used once the program is deployed!"
+          );
+        }
+        
+        throw apiError;
+      }
     } catch (e: any) {
       console.error("Failed to create wallet:", e);
       setError(e.message || "Failed to create wallet. Please try again.");
@@ -109,36 +159,49 @@ export default function Home() {
   }
 
   async function handleSend() {
-    if (!identity || !vault) return;
+    console.log("Initiating send...");
+    if (!identity || !vault) return; 
     setSending(true);
     setError(null);
     try {
+      console.log("Retrieving stored credential...");
       const stored = getStoredCredential();
       if (!stored) throw new Error("No credential found");
       
-      const client = new KeystoreClient(connection);
       const lamports = Math.floor(parseFloat(sendAmount) * 1e9);
       const to = new PublicKey(sendTo);
       
-      // Fetch current nonce from identity account
-      const identityAccount = await client.getIdentity(identity);
-      if (!identityAccount) throw new Error("Identity account not found");
+      // Get current nonce from the identity account via API
+      console.log("Fetching identity account for nonce...");
+      const identityInfo = await getIdentityInfo(identity);
+      const nonce = identityInfo.nonce || 0;
+      console.log("Current nonce:", nonce);
       
-      // Build message with current nonce and sign with passkey
-      const message = client.buildMessage({ type: "send", to, lamports }, identityAccount.nonce);
-      const signature = await signWithPasskey(
+      // Build message to sign (action + nonce)
+      console.log("Building Message");
+      const message = buildMessage({ type: "send", to, lamports }, nonce);
+      console.log("Message to sign:", message);
+      
+      // Sign with passkey - now returns signature + WebAuthn data
+      const { signature, authenticatorData, clientDataJSON } = await signWithPasskey(
         new Uint8Array(stored.credentialId),
         message
       );
+      console.log("Message signed");
+      console.log("Signature obtained:", signature);
       
-      // Execute transaction (nonce is fetched automatically inside)
-      await client.execute(identity, vault, {
-        type: "send",
-        to,
-        lamports,
-        pubkey: new Uint8Array(stored.publicKey),
-        signatures: [{ keyIndex: 0, signature }],
-      });
+      // Execute via API with WebAuthn data
+      console.log("Sending Execute request to API...");
+      const response = await executeTransaction(
+        identity,
+        { type: "send", to, lamports },
+        new Uint8Array(stored.publicKey),
+        [{ keyIndex: 0, signature, recoveryId: 0 }],
+        authenticatorData,
+        clientDataJSON
+      );
+      
+      console.log("Transaction executed:", response.signature);
       
       setShowSend(false);
       setSendAmount("");

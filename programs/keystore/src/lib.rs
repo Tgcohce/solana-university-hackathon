@@ -33,8 +33,9 @@ pub mod keystore {
         ctx: Context<Execute>,
         action: Action,
         sigs: Vec<SignatureData>,
+        signed_data: Vec<u8>,
     ) -> Result<()> {
-        instructions::execute::handler(ctx, action, sigs)
+        instructions::execute::handler(ctx, action, sigs, signed_data)
     }
 
     pub fn register_credential(
