@@ -48,9 +48,10 @@ export interface TransactionHistoryEntry {
   blockTime: number | null;
   slot: number;
   status: 'success' | 'failed';
-  type: 'send' | 'setThreshold' | 'createIdentity' | 'addKey' | 'registerCredential' | 'unknown';
+  type: 'send' | 'receive' | 'setThreshold' | 'createIdentity' | 'addKey' | 'registerCredential' | 'unknown';
   details: {
     recipient?: string;
+    sender?: string;
     amount?: number; // in lamports
     threshold?: number;
     deviceName?: string;

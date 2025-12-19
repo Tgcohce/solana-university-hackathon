@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
-import { Fingerprint, Plus, Send, Shield, Loader2, Copy, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Fingerprint, Plus, Send, Shield, Loader2, Copy, ExternalLink, CheckCircle2, Clock, ArrowUpRight, ArrowDownLeft, Settings, Key, UserPlus } from "lucide-react";
 import { createPasskey, signWithPasskey, getStoredCredential, storeCredential } from "@/lib/passkey";
 import { getIdentityPDA, getVaultPDA } from "@/lib/keystore";
-import { createIdentity, parseCreateIdentityResponse, executeTransaction, getIdentityInfo } from "@/lib/api";
+import { createIdentity, parseCreateIdentityResponse, executeTransaction, getIdentityInfo, getTransactionHistory } from "@/lib/api";
 import { formatAddress, lamportsToSOL } from "@/lib/solana";
 import { buildMessage } from "@/lib/message";
 import { KeystoreClient } from "@/lib/keystore-client";
+import { TransactionHistoryEntry } from "@/types/api";
 
 const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 const keystoreClient = new KeystoreClient(connection);
@@ -27,6 +28,8 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [history, setHistory] = useState<TransactionHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     checkExistingWallet();
@@ -39,6 +42,12 @@ export default function Home() {
       return () => clearInterval(interval);
     }
   }, [vault]);
+
+  useEffect(() => {
+    if (identity) {
+      fetchHistory();
+    }
+  }, [identity]);
 
   async function checkExistingWallet() {
     const stored = getStoredCredential();
@@ -80,6 +89,18 @@ export default function Home() {
     } catch (e) {
       console.error("Failed to fetch balance:", e);
     }
+  }
+
+  async function fetchHistory() {
+    if (!identity) return;
+    setHistoryLoading(true);
+    try {
+      const response = await getTransactionHistory(identity);
+      setHistory(response.transactions);
+    } catch (e) {
+      console.error("Failed to fetch history:", e);
+    }
+    setHistoryLoading(false);
   }
 
   async function handleCreate() {
@@ -209,6 +230,7 @@ export default function Home() {
       setSuccess(`Sent ${sendAmount} SOL successfully!`);
       setTimeout(() => setSuccess(null), 5000);
       fetchBalance();
+      fetchHistory(); // Refresh history after send
     } catch (e: any) {
       console.error("Failed to send:", e);
       setError(e.message || "Failed to send SOL. Please try again.");
@@ -353,8 +375,15 @@ export default function Home() {
 
         {/* Balance Card */}
         <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-3xl p-8 shadow-2xl">
+          {/* Identity PDA - subtle display at top */}
+          <p className="text-xs text-white/40 font-mono mb-4">
+            ID: {identity ? identity.toBase58() : "..."}
+          </p>
+          
           <p className="text-sm text-white/70 mb-2">Total Balance</p>
           <p className="text-5xl font-bold mb-6">{lamportsToSOL(balance).toFixed(4)} SOL</p>
+          
+          {/* Vault Address */}
           <div className="flex items-center gap-2 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
             <p className="text-sm text-white/90 font-mono flex-1 truncate">
               {vault?.toBase58()}
@@ -362,7 +391,7 @@ export default function Home() {
             <button
               onClick={handleCopyAddress}
               className="flex-shrink-0 hover:bg-white/20 p-2 rounded-lg transition"
-              title="Copy address"
+              title="Copy vault address"
             >
               {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
@@ -396,6 +425,39 @@ export default function Home() {
             </div>
             <span className="font-medium">Airdrop</span>
           </button>
+        </div>
+
+        {/* Transaction History */}
+        <div className="bg-white/5 rounded-2xl p-6 space-y-4 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-blue-400" />
+              <span className="font-medium text-lg">Activity</span>
+            </div>
+            <button
+              onClick={fetchHistory}
+              disabled={historyLoading}
+              className="text-xs text-gray-400 hover:text-white transition disabled:opacity-50"
+            >
+              {historyLoading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+          
+          {historyLoading && history.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No transactions yet
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {history.map((tx) => (
+                <TransactionItem key={tx.signature} tx={tx} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Security Section */}
@@ -522,5 +584,129 @@ function getDeviceName(): string {
   if (ua.includes("Windows")) return "Windows PC";
   if (ua.includes("Android")) return "Android";
   return "Device";
+}
+
+function TransactionItem({ tx }: { tx: TransactionHistoryEntry }) {
+  const getIcon = () => {
+    switch (tx.type) {
+      case "send":
+        return <ArrowUpRight className="w-4 h-4 text-orange-400" />;
+      case "receive":
+        return <ArrowDownLeft className="w-4 h-4 text-green-400" />;
+      case "createIdentity":
+        return <UserPlus className="w-4 h-4 text-green-400" />;
+      case "addKey":
+        return <Key className="w-4 h-4 text-blue-400" />;
+      case "setThreshold":
+        return <Settings className="w-4 h-4 text-purple-400" />;
+      case "registerCredential":
+        return <Fingerprint className="w-4 h-4 text-cyan-400" />;
+      default:
+        return <ArrowDownLeft className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const getLabel = () => {
+    switch (tx.type) {
+      case "send":
+        return "Sent SOL";
+      case "receive":
+        return "Received SOL";
+      case "createIdentity":
+        return "Wallet Created";
+      case "addKey":
+        return "Key Added";
+      case "setThreshold":
+        return "Threshold Updated";
+      case "registerCredential":
+        return "Credential Registered";
+      default:
+        return "Transaction";
+    }
+  };
+
+  const getDetails = () => {
+    if (tx.type === "send" && tx.details.amount !== undefined) {
+      return `-${lamportsToSOL(tx.details.amount).toFixed(4)} SOL`;
+    }
+    if (tx.type === "receive" && tx.details.amount !== undefined) {
+      return `+${lamportsToSOL(tx.details.amount).toFixed(4)} SOL`;
+    }
+    if (tx.type === "createIdentity") {
+      return "+0 SOL";
+    }
+    if (tx.type === "setThreshold" && tx.details.threshold) {
+      return `Set to ${tx.details.threshold}`;
+    }
+    return null;
+  };
+
+  const getDetailsColor = () => {
+    if (tx.type === "send") return "text-orange-400";
+    if (tx.type === "receive") return "text-green-400";
+    if (tx.type === "createIdentity") return "text-green-400";
+    return "text-gray-300";
+  };
+
+  const formatTime = (timestamp: number | null) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const openSolscan = () => {
+    window.open(
+      `https://solscan.io/tx/${tx.signature}?cluster=devnet`,
+      "_blank"
+    );
+  };
+
+  return (
+    <button
+      onClick={openSolscan}
+      className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition group text-left"
+    >
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+        tx.status === "failed" ? "bg-red-500/20" : "bg-white/10"
+      }`}>
+        {getIcon()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm truncate">{getLabel()}</span>
+          {tx.status === "failed" && (
+            <span className="text-xs text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded">Failed</span>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 truncate">
+          {tx.type === "send" && tx.details.recipient && `To: ${formatAddress(tx.details.recipient, 4)}`}
+          {tx.type === "receive" && tx.details.sender && `From: ${formatAddress(tx.details.sender, 4)}`}
+          {tx.type !== "send" && tx.type !== "receive" && formatTime(tx.blockTime)}
+          {(tx.type === "send" || tx.type === "receive") && !tx.details.recipient && !tx.details.sender && formatTime(tx.blockTime)}
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0">
+        {getDetails() && (
+          <div className={`text-sm font-medium ${getDetailsColor()}`}>
+            {getDetails()}
+          </div>
+        )}
+        {(tx.details.recipient || tx.details.sender) && (
+          <div className="text-xs text-gray-500">{formatTime(tx.blockTime)}</div>
+        )}
+      </div>
+      <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition flex-shrink-0" />
+    </button>
+  );
 }
 

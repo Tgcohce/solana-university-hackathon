@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, PublicKey, ParsedTransactionWithMeta, ConfirmedSignatureInfo } from '@solana/web3.js';
 import { KeystoreClient } from '@/lib/keystore-client';
+import bs58 from 'bs58';
 
 // Transaction history entry
 interface TransactionHistoryEntry {
@@ -8,9 +9,10 @@ interface TransactionHistoryEntry {
   blockTime: number | null;
   slot: number;
   status: 'success' | 'failed';
-  type: 'send' | 'setThreshold' | 'createIdentity' | 'addKey' | 'registerCredential' | 'unknown';
+  type: 'send' | 'receive' | 'setThreshold' | 'createIdentity' | 'addKey' | 'registerCredential' | 'unknown';
   details: {
     recipient?: string;
+    sender?: string;
     amount?: number; // in lamports
     threshold?: number;
     deviceName?: string;
@@ -74,21 +76,25 @@ function parseExecuteDetails(
 
 function parseTransactionType(
   tx: ParsedTransactionWithMeta,
-  programId: string
+  programId: string,
+  vaultAddress: string
 ): { type: TransactionHistoryEntry['type']; details: TransactionHistoryEntry['details'] } {
-  const innerInstructions = tx.meta?.innerInstructions || [];
   const message = tx.transaction.message;
+  let foundProgramIx = false;
 
   // Look through all instructions for our program
   for (const ix of message.instructions) {
     if ('programId' in ix && ix.programId.toBase58() === programId) {
+      foundProgramIx = true;
       // This is a compiled instruction, try to get data
       if ('data' in ix && typeof ix.data === 'string') {
         try {
-          const data = Buffer.from(ix.data, 'base64');
+          // Solana instruction data is base58 encoded
+          const data = bs58.decode(ix.data);
           
+          // Check discriminators in order of specificity
           if (matchesDiscriminator(data, INSTRUCTION_DISCRIMINATORS.createIdentity)) {
-            return { type: 'createIdentity', details: {} };
+            return { type: 'createIdentity', details: { amount: 0 } };
           }
           if (matchesDiscriminator(data, INSTRUCTION_DISCRIMINATORS.addKey)) {
             return { type: 'addKey', details: {} };
@@ -106,26 +112,39 @@ function parseTransactionType(
     }
   }
 
-  // Fallback: try to detect based on account changes
-  const preBalances = tx.meta?.preBalances || [];
-  const postBalances = tx.meta?.postBalances || [];
-  
-  if (preBalances.length > 0 && postBalances.length > 0) {
-    // Check for SOL transfers
-    for (let i = 0; i < preBalances.length; i++) {
-      const diff = postBalances[i] - preBalances[i];
-      if (diff > 0 && diff > (tx.meta?.fee || 0)) {
-        // This account received SOL
-        const accountKeys = message.accountKeys;
-        if (accountKeys[i]) {
-          return {
-            type: 'send',
-            details: {
-              recipient: 'pubkey' in accountKeys[i] 
-                ? accountKeys[i].pubkey.toBase58() 
-                : accountKeys[i].toBase58(),
+  // If no program instruction found, check if this is a receive transaction
+  // (SOL transferred to the vault from outside)
+  if (!foundProgramIx) {
+    const accountKeys = message.accountKeys;
+    const preBalances = tx.meta?.preBalances || [];
+    const postBalances = tx.meta?.postBalances || [];
+    
+    // Find vault in account keys and check if it received SOL
+    for (let i = 0; i < accountKeys.length; i++) {
+      const accountKey = 'pubkey' in accountKeys[i] 
+        ? accountKeys[i].pubkey.toBase58() 
+        : accountKeys[i].toBase58();
+      
+      if (accountKey === vaultAddress) {
+        const diff = postBalances[i] - preBalances[i];
+        if (diff > 0) {
+          // Vault received SOL - this is a receive transaction
+          // Try to find the sender (first account that lost SOL)
+          let sender: string | undefined;
+          for (let j = 0; j < accountKeys.length; j++) {
+            if (j !== i && preBalances[j] - postBalances[j] >= diff) {
+              sender = 'pubkey' in accountKeys[j] 
+                ? accountKeys[j].pubkey.toBase58() 
+                : accountKeys[j].toBase58();
+              break;
+            }
+          }
+          return { 
+            type: 'receive', 
+            details: { 
               amount: diff,
-            },
+              sender,
+            } 
           };
         }
       }
@@ -232,7 +251,7 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        const { type, details } = parseTransactionType(tx, programId);
+        const { type, details } = parseTransactionType(tx, programId, vaultPda.toBase58());
 
         history.push({
           signature: sigInfo.signature,

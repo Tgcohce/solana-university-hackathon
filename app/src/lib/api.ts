@@ -5,7 +5,9 @@ import {
   ExecuteRequest, 
   ExecuteResponse,
   ExecuteActionRequest,
-  SignatureDataRequest 
+  SignatureDataRequest,
+  TransactionHistoryEntry,
+  TransactionHistoryResponse,
 } from "@/types/api";
 
 export interface ApiError {
@@ -191,4 +193,32 @@ export async function executeTransaction(
   }
 
   return data as ExecuteResponse;
+}
+
+/**
+ * Fetch transaction history for an identity
+ * 
+ * @param identity - The identity PDA as base58 string or PublicKey
+ * @returns The transaction history
+ */
+export async function getTransactionHistory(
+  identity: PublicKey | string
+): Promise<TransactionHistoryResponse> {
+  const identityStr = typeof identity === "string" ? identity : identity.toBase58();
+  
+  const response = await fetch(`/api/keystore/history?identity=${encodeURIComponent(identityStr)}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ApiError;
+    throw new Error(error.details || error.error || "Failed to fetch transaction history");
+  }
+
+  return data as TransactionHistoryResponse;
 }
