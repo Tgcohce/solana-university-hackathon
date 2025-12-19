@@ -2,7 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
+/* Glock Grotesk 2.0 - Primary Font (self-hosted)
+   Download from: https://www.tsankotype.com/shop-4
+   Place font files in /public/fonts/ directory */
+@font-face {
+  font-family: 'Glock Grotesk';
+  src: url('/fonts/GlockGrotesk-Regular.woff2') format('woff2'),
+       url('/fonts/GlockGrotesk-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Glock Grotesk';
+  src: url('/fonts/GlockGrotesk-Medium.woff2') format('woff2'),
+       url('/fonts/GlockGrotesk-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Glock Grotesk';
+  src: url('/fonts/GlockGrotesk-Bold.woff2') format('woff2'),
+       url('/fonts/GlockGrotesk-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Glock Grotesk';
+  src: url('/fonts/GlockGrotesk-Black.woff2') format('woff2'),
+       url('/fonts/GlockGrotesk-Black.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* JetBrains Mono for code/addresses */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
 
 :root {
   /* Primary Colors */
@@ -29,13 +69,13 @@
   body {
     background: var(--midnight-navy);
     color: var(--ice-white);
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Glock Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Glock Grotesk', sans-serif;
     font-weight: 700;
   }
   
@@ -203,7 +243,7 @@
     border-radius: 8px;
     padding: 12px 16px;
     color: #F0F4F8;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Glock Grotesk', sans-serif;
     transition: all 0.15s var(--ease-out);
   }
   
