@@ -41,3 +41,29 @@ export interface ExecuteResponse {
   signature: string;
   action: ExecuteActionRequest;
 }
+
+// History types
+export interface TransactionHistoryEntry {
+  signature: string;
+  blockTime: number | null;
+  slot: number;
+  status: 'success' | 'failed';
+  type: 'send' | 'receive' | 'setThreshold' | 'createIdentity' | 'addKey' | 'registerCredential' | 'unknown';
+  details: {
+    recipient?: string;
+    sender?: string;
+    amount?: number; // in lamports
+    threshold?: number;
+    deviceName?: string;
+  };
+  fee: number;
+}
+
+export interface TransactionHistoryResponse {
+  success: boolean;
+  identity: string;
+  vault: string;
+  transactions: TransactionHistoryEntry[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
