@@ -422,6 +422,31 @@ export default function WalletScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.walletContainer}>
+        {/* ============== DEBUG: STORED CREDENTIAL - REMOVE AFTER DEBUGGING ============== */}
+        {/*credential && (
+          <View style={{ backgroundColor: "#1a1a2e", borderRadius: 8, padding: 12, marginBottom: 16, borderWidth: 2, borderColor: "#ff6b6b" }}>
+            <ThemedText style={{ color: "#ff6b6b", fontWeight: "bold", marginBottom: 8 }}>
+              🔧 STORED CREDENTIAL (DEBUG - REMOVE LATER)
+            </ThemedText>
+            <ThemedText style={{ color: "#a0a0a0", fontSize: 10, marginBottom: 4 }}>
+              owner: {credential.owner}
+            </ThemedText>
+            <ThemedText style={{ color: "#a0a0a0", fontSize: 10, marginBottom: 4 }}>
+              publicKey (number[]): [{credential.publicKey.join(", ")}]
+            </ThemedText>
+            <ThemedText style={{ color: "#a0a0a0", fontSize: 10, marginBottom: 4 }}>
+              publicKey.length: {credential.publicKey.length}
+            </ThemedText>
+            <ThemedText style={{ color: "#a0a0a0", fontSize: 10, marginBottom: 4 }}>
+              credentialId (number[]): [{credential.credentialId.join(", ")}]
+            </ThemedText>
+            <ThemedText style={{ color: "#a0a0a0", fontSize: 10 }}>
+              credentialId.length: {credential.credentialId.length}
+            </ThemedText>
+          </View>
+        )*/}
+        {/* ============== END DEBUG ============== */}
+
         {/* Header */}
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>Keystore</ThemedText>
