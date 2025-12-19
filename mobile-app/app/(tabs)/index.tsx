@@ -36,7 +36,6 @@ import {
   getConnection,
   formatAddress,
   lamportsToSOL,
-  requestAirdrop,
 } from "@/lib/solana";
 import { getIdentityPDA, getVaultPDA } from "@/lib/keystore";
 import {
@@ -44,8 +43,11 @@ import {
   parseCreateIdentityResponse,
   executeTransaction,
   getIdentityInfo,
+  getTransactionHistory,
+  requestAirdrop,
 } from "@/lib/api";
 import { buildMessage } from "@/lib/message";
+import { TransactionHistoryEntry } from "@/lib/types/api";
 
 type WalletStatus = "disconnected" | "creating" | "connected";
 
@@ -73,6 +75,8 @@ export default function WalletScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [history, setHistory] = useState<TransactionHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const connection = getConnection("devnet");
 
@@ -89,6 +93,13 @@ export default function WalletScreen() {
       return () => clearInterval(interval);
     }
   }, [vault]);
+
+  // Fetch history when identity is set
+  useEffect(() => {
+    if (identity) {
+      fetchHistory();
+    }
+  }, [identity]);
 
   /**
    * Check for existing wallet credential
@@ -148,6 +159,21 @@ export default function WalletScreen() {
     } catch (e) {
       console.error("Failed to fetch balance:", e);
     }
+  }
+
+  /**
+   * Fetch transaction history
+   */
+  async function fetchHistory() {
+    if (!identity) return;
+    setHistoryLoading(true);
+    try {
+      const response = await getTransactionHistory(identity);
+      setHistory(response.transactions);
+    } catch (e) {
+      console.error("Failed to fetch history:", e);
+    }
+    setHistoryLoading(false);
   }
 
   /**
@@ -270,6 +296,7 @@ export default function WalletScreen() {
       setSuccess(`Sent ${sendAmount} SOL successfully!`);
       setTimeout(() => setSuccess(null), 5000);
       fetchBalance();
+      fetchHistory(); // Refresh history after send
     } catch (e: any) {
       console.error("Failed to send:", e);
       setError(e.message || "Failed to send SOL. Please try again.");
@@ -278,19 +305,21 @@ export default function WalletScreen() {
   }
 
   /**
-   * Request airdrop
+   * Request airdrop via API
    */
   async function handleAirdrop() {
     if (!vault) return;
     setIsLoading(true);
+    setError(null);
     try {
-      await requestAirdrop(connection, vault, 1);
-      setSuccess("Airdropped 1 SOL!");
+      const result = await requestAirdrop(vault);
+      setSuccess(`Airdropped ${result.amount} SOL!`);
       setTimeout(() => setSuccess(null), 5000);
       fetchBalance();
+      fetchHistory(); // Refresh history after airdrop
     } catch (e: any) {
       console.error("Airdrop failed:", e);
-      setError("Airdrop failed. Rate limit may have been exceeded.");
+      setError(e.message || "Airdrop failed. Please try again later.");
       setTimeout(() => setError(null), 5000);
     }
     setIsLoading(false);
@@ -530,6 +559,41 @@ export default function WalletScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Activity Section */}
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeader}>
+            <View style={styles.activityTitleRow}>
+              <IconSymbol size={20} name="clock" color="#3b82f6" />
+              <ThemedText style={styles.activityTitle}>Activity</ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={fetchHistory}
+              disabled={historyLoading}
+              style={styles.refreshButton}
+            >
+              <ThemedText style={[styles.refreshText, historyLoading && styles.refreshTextDisabled]}>
+                {historyLoading ? "Loading..." : "Refresh"}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {historyLoading && history.length === 0 ? (
+            <View style={styles.activityLoading}>
+              <ActivityIndicator size="small" color="#9ca3af" />
+            </View>
+          ) : history.length === 0 ? (
+            <View style={styles.activityEmpty}>
+              <ThemedText style={styles.activityEmptyText}>No transactions yet</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.activityList}>
+              {history.map((tx) => (
+                <TransactionItem key={tx.signature} tx={tx} />
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Security Section */}
         <View style={styles.securityCard}>
           <View style={styles.securityHeader}>
@@ -667,6 +731,161 @@ export default function WalletScreen() {
         </Pressable>
       </Modal>
     </ScrollView>
+  );
+}
+
+/**
+ * Transaction Item Component
+ */
+function TransactionItem({ tx }: { tx: TransactionHistoryEntry }) {
+  const getIconName = (): "arrow.up.right" | "arrow.down.left" | "person.badge.plus" | "key" | "gearshape" | "touchid" | "questionmark" => {
+    switch (tx.type) {
+      case "send":
+        return "arrow.up.right";
+      case "receive":
+        return "arrow.down.left";
+      case "createIdentity":
+        return "person.badge.plus";
+      case "addKey":
+        return "key";
+      case "setThreshold":
+        return "gearshape";
+      case "registerCredential":
+        return "touchid";
+      default:
+        return "questionmark";
+    }
+  };
+
+  const getIconColor = () => {
+    switch (tx.type) {
+      case "send":
+        return "#fb923c"; // orange-400
+      case "receive":
+        return "#22c55e"; // green-400
+      case "createIdentity":
+        return "#22c55e"; // green-400
+      case "addKey":
+        return "#3b82f6"; // blue-400
+      case "setThreshold":
+        return "#a855f7"; // purple-400
+      case "registerCredential":
+        return "#06b6d4"; // cyan-400
+      default:
+        return "#9ca3af"; // gray-400
+    }
+  };
+
+  const getLabel = () => {
+    switch (tx.type) {
+      case "send":
+        return "Sent SOL";
+      case "receive":
+        return "Received SOL";
+      case "createIdentity":
+        return "Wallet Created";
+      case "addKey":
+        return "Key Added";
+      case "setThreshold":
+        return "Threshold Updated";
+      case "registerCredential":
+        return "Credential Registered";
+      default:
+        return "Transaction";
+    }
+  };
+
+  const getDetails = () => {
+    if (tx.type === "send" && tx.details.amount !== undefined) {
+      return `-${lamportsToSOL(tx.details.amount).toFixed(4)} SOL`;
+    }
+    if (tx.type === "receive" && tx.details.amount !== undefined) {
+      return `+${lamportsToSOL(tx.details.amount).toFixed(4)} SOL`;
+    }
+    if (tx.type === "createIdentity") {
+      return "+0 SOL";
+    }
+    if (tx.type === "setThreshold" && tx.details.threshold) {
+      return `Set to ${tx.details.threshold}`;
+    }
+    return null;
+  };
+
+  const getDetailsColor = () => {
+    if (tx.type === "send") return "#fb923c"; // orange-400
+    if (tx.type === "receive") return "#22c55e"; // green-400
+    if (tx.type === "createIdentity") return "#22c55e"; // green-400
+    return "#d1d5db"; // gray-300
+  };
+
+  const formatTime = (timestamp: number | null) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const formatShortAddress = (addr: string) => {
+    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  };
+
+  const openSolscan = () => {
+    Linking.openURL(`https://solscan.io/tx/${tx.signature}?cluster=devnet`);
+  };
+
+  const details = getDetails();
+
+  return (
+    <TouchableOpacity
+      onPress={openSolscan}
+      style={[
+        styles.transactionItem,
+        tx.status === "failed" && styles.transactionItemFailed,
+      ]}
+    >
+      <View style={[
+        styles.transactionIcon,
+        tx.status === "failed" ? styles.transactionIconFailed : styles.transactionIconDefault,
+      ]}>
+        <IconSymbol size={16} name={getIconName()} color={getIconColor()} />
+      </View>
+      <View style={styles.transactionContent}>
+        <View style={styles.transactionLabelRow}>
+          <ThemedText style={styles.transactionLabel}>{getLabel()}</ThemedText>
+          {tx.status === "failed" && (
+            <View style={styles.failedBadge}>
+              <ThemedText style={styles.failedBadgeText}>Failed</ThemedText>
+            </View>
+          )}
+        </View>
+        <ThemedText style={styles.transactionSubtext}>
+          {tx.type === "send" && tx.details.recipient && `To: ${formatShortAddress(tx.details.recipient)}`}
+          {tx.type === "receive" && tx.details.sender && `From: ${formatShortAddress(tx.details.sender)}`}
+          {tx.type !== "send" && tx.type !== "receive" && formatTime(tx.blockTime)}
+          {(tx.type === "send" || tx.type === "receive") && !tx.details.recipient && !tx.details.sender && formatTime(tx.blockTime)}
+        </ThemedText>
+      </View>
+      <View style={styles.transactionRight}>
+        {details && (
+          <ThemedText style={[styles.transactionAmount, { color: getDetailsColor() }]}>
+            {details}
+          </ThemedText>
+        )}
+        {(tx.details.recipient || tx.details.sender) && (
+          <ThemedText style={styles.transactionTime}>{formatTime(tx.blockTime)}</ThemedText>
+        )}
+      </View>
+      <IconSymbol size={16} name="arrow.up.right" color="#6b7280" />
+    </TouchableOpacity>
   );
 }
 
@@ -1064,5 +1283,120 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#fff",
+  },
+
+  // Activity Section styles
+  activityCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+  },
+  activityHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  activityTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  activityTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  refreshText: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+  refreshTextDisabled: {
+    opacity: 0.5,
+  },
+  activityLoading: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+  },
+  activityEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+  },
+  activityEmptyText: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  activityList: {
+    gap: 8,
+  },
+
+  // Transaction Item styles
+  transactionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    padding: 12,
+  },
+  transactionItemFailed: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  transactionIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transactionIconDefault: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  transactionIconFailed: {
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+  },
+  transactionContent: {
+    flex: 1,
+  },
+  transactionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  transactionLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#fff",
+  },
+  failedBadge: {
+    backgroundColor: "rgba(239, 68, 68, 0.2)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  failedBadgeText: {
+    fontSize: 10,
+    color: "#f87171",
+  },
+  transactionSubtext: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  transactionRight: {
+    alignItems: "flex-end",
+  },
+  transactionAmount: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  transactionTime: {
+    fontSize: 12,
+    color: "#6b7280",
   },
 });

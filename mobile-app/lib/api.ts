@@ -13,6 +13,8 @@ import {
   SignatureDataRequest,
   IdentityInfo,
   ApiError,
+  TransactionHistoryResponse,
+  AirdropResponse,
 } from "./types/api";
 
 // Base URL for the hosted API
@@ -165,4 +167,64 @@ export async function executeTransaction(
   }
 
   return data as ExecuteResponse;
+}
+
+/**
+ * Fetch transaction history for an identity
+ * 
+ * @param identity - The identity PDA as base58 string or PublicKey
+ * @returns The transaction history
+ */
+export async function getTransactionHistory(
+  identity: PublicKey | string
+): Promise<TransactionHistoryResponse> {
+  const identityStr = typeof identity === "string" ? identity : identity.toBase58();
+  
+  const response = await fetch(
+    `${API_BASE_URL}/api/keystore/history?identity=${encodeURIComponent(identityStr)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ApiError;
+    throw new Error(error.details || error.error || "Failed to fetch transaction history");
+  }
+
+  return data as TransactionHistoryResponse;
+}
+
+/**
+ * Request an airdrop of 0.1 SOL from the admin wallet
+ * 
+ * @param recipient - The recipient wallet address
+ * @returns The airdrop result
+ */
+export async function requestAirdrop(
+  recipient: PublicKey | string
+): Promise<AirdropResponse> {
+  const recipientStr = typeof recipient === "string" ? recipient : recipient.toBase58();
+  
+  const response = await fetch(`${API_BASE_URL}/api/keystore/airdrop`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ recipient: recipientStr }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ApiError;
+    throw new Error(error.details || error.error || "Airdrop failed");
+  }
+
+  return data as AirdropResponse;
 }
