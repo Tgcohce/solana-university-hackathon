@@ -222,3 +222,39 @@ export async function getTransactionHistory(
 
   return data as TransactionHistoryResponse;
 }
+
+export interface AirdropResponse {
+  success: boolean;
+  signature: string;
+  amount: number;
+  recipient: string;
+}
+
+/**
+ * Request an airdrop of 0.1 SOL from the admin wallet
+ * 
+ * @param recipient - The recipient wallet address
+ * @returns The airdrop result
+ */
+export async function requestAirdrop(
+  recipient: PublicKey | string
+): Promise<AirdropResponse> {
+  const recipientStr = typeof recipient === "string" ? recipient : recipient.toBase58();
+  
+  const response = await fetch("/api/keystore/airdrop", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ recipient: recipientStr }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const error = data as ApiError;
+    throw new Error(error.details || error.error || "Airdrop failed");
+  }
+
+  return data as AirdropResponse;
+}

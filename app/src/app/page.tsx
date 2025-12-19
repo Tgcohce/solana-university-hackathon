@@ -5,7 +5,7 @@ import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { Fingerprint, Plus, Send, Shield, Loader2, Copy, ExternalLink, CheckCircle2, Clock, ArrowUpRight, ArrowDownLeft, Settings, Key, UserPlus } from "lucide-react";
 import { createPasskey, signWithPasskey, getStoredCredential, storeCredential } from "@/lib/passkey";
 import { getIdentityPDA, getVaultPDA } from "@/lib/keystore";
-import { createIdentity, parseCreateIdentityResponse, executeTransaction, getIdentityInfo, getTransactionHistory } from "@/lib/api";
+import { createIdentity, parseCreateIdentityResponse, executeTransaction, getIdentityInfo, getTransactionHistory, requestAirdrop } from "@/lib/api";
 import { formatAddress, lamportsToSOL } from "@/lib/solana";
 import { buildMessage } from "@/lib/message";
 import { KeystoreClient } from "@/lib/keystore-client";
@@ -26,6 +26,7 @@ export default function Home() {
   const [sendTo, setSendTo] = useState("");
   const [showSend, setShowSend] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedIdentity, setCopiedIdentity] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [history, setHistory] = useState<TransactionHistoryEntry[]>([]);
@@ -240,15 +241,16 @@ export default function Home() {
 
   async function handleAirdrop() {
     if (!vault) return;
+    setError(null);
     try {
-      const signature = await connection.requestAirdrop(vault, 1000000000); // 1 SOL
-      await connection.confirmTransaction(signature);
-      setSuccess("Airdropped 1 SOL!");
+      const result = await requestAirdrop(vault);
+      setSuccess(`Airdropped ${result.amount} SOL!`);
       setTimeout(() => setSuccess(null), 5000);
       fetchBalance();
+      fetchHistory();
     } catch (e: any) {
       console.error("Airdrop failed:", e);
-      setError("Airdrop failed. Rate limit may have been exceeded.");
+      setError(e.message || "Airdrop failed. Please try again later.");
       setTimeout(() => setError(null), 5000);
     }
   }
@@ -376,15 +378,32 @@ export default function Home() {
         {/* Balance Card */}
         <div className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-3xl p-8 shadow-2xl">
           {/* Identity PDA - subtle display at top */}
-          <p className="text-xs text-white/40 font-mono mb-4">
-            ID: {identity ? identity.toBase58() : "..."}
-          </p>
+          <div className="flex items-center gap-2 mb-4">
+            <p className="text-xs text-white/40 font-mono">
+              ID: {identity ? formatAddress(identity.toBase58(), 4) : "..."}
+            </p>
+            {identity && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(identity.toBase58());
+                  setCopiedIdentity(true);
+                  setTimeout(() => setCopiedIdentity(false), 2000);
+                }}
+                className="text-white/40 hover:text-white/70 transition"
+                title="Copy identity PDA"
+              >
+                {copiedIdentity ? <CheckCircle2 className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </button>
+            )}
+          </div>
           
           <p className="text-sm text-white/70 mb-2">Total Balance</p>
           <p className="text-5xl font-bold mb-6">{lamportsToSOL(balance).toFixed(4)} SOL</p>
           
           {/* Vault Address */}
-          <div className="flex items-center gap-2 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+          <div className="space-y-1">
+            <p className="text-xs text-white/50">Wallet Address</p>
+            <div className="flex items-center gap-2 bg-white/10 rounded-xl p-3 backdrop-blur-sm">
             <p className="text-sm text-white/90 font-mono flex-1 truncate">
               {vault?.toBase58()}
             </p>
@@ -402,6 +421,7 @@ export default function Home() {
             >
               <ExternalLink className="w-4 h-4" />
             </button>
+            </div>
           </div>
         </div>
 
@@ -564,7 +584,8 @@ export default function Home() {
                 ) : (
                   <>
                     <Fingerprint className="w-5 h-5" />
-                    Confirm with Face ID
+                    <span className="hidden sm:inline">Confirm with Face ID</span>
+                    <span className="sm:hidden">Confirm</span>
                   </>
                 )}
               </button>
