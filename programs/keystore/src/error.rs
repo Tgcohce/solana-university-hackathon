@@ -24,5 +24,7 @@ pub enum KeystoreError {
     InvalidAccountData,
     #[msg("Insufficient funds")]
     InsufficientFunds,
+    #[msg("Invalid WebAuthn data")]
+    InvalidWebAuthnData,
 }
 

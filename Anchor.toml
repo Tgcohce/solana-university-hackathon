@@ -1,11 +1,12 @@
 [toolchain]
+anchor_version = "0.30.1"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-keystore = "4DS5K64SuWK6PmN1puZVtPouLWCqQDA3aE58MPPuDXu2"
+keystore = "6AjfeA3Pv24sGgLfDLQ3DD1zUHxHPPDNbGLMcarnCcBC"
 
 [programs.localnet]
 keystore = "74kKoQwsWTBjAaN29vbXP2Hp6o6Es98b3YpGyWoEL7wH"

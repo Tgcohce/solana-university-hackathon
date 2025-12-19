@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test": "anchor test"
+    "test": "anchor test",
+    "setup": "node setup-admin-wallet.js"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",

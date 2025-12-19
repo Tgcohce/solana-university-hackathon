@@ -6,8 +6,9 @@ if (typeof global.Buffer === 'undefined') {
   global.Buffer = Buffer;
 }
 
-// Your deployed program ID - update after deployment
-export const PROGRAM_ID = new PublicKey("BioDLEXFMcnU9vGCLwD2fYwAGHs7MKP3Usu6Z1ThnnQB");
+// IMPORTANT: Update this after deploying the program
+// Must match the program ID in programs/keystore/src/lib.rs and Anchor.toml
+export const PROGRAM_ID = new PublicKey("6AjfeA3Pv24sGgLfDLQ3DD1zUHxHPPDNbGLMcarnCcBC");
 
 export function getConnection(cluster: "devnet" | "mainnet-beta" | "testnet" = "devnet"): Connection {
   return new Connection(clusterApiUrl(cluster), "confirmed");

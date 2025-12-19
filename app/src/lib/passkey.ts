@@ -7,6 +7,7 @@ export interface StoredCredential {
   credentialId: number[];
   publicKey: number[];
   owner: string;
+  userKeypair?: number[]; // The user's Solana keypair (secret key)
 }
 
 export async function createPasskey(username: string): Promise<PasskeyCredential> {
@@ -43,19 +44,26 @@ export async function createPasskey(username: string): Promise<PasskeyCredential
   };
 }
 
+export interface PasskeySignatureResult {
+  signature: Uint8Array;      // Raw r||s signature (64 bytes)
+  authenticatorData: Uint8Array;
+  clientDataJSON: Uint8Array;
+  signedMessage: Uint8Array;  // The actual data that was signed (authenticatorData || clientDataHash)
+}
+
 export async function signWithPasskey(
   credentialId: Uint8Array,
   message: Uint8Array
-): Promise<Uint8Array> {
+): Promise<PasskeySignatureResult> {
   // Hash the message to 32 bytes for the challenge
-  const msgHash = await crypto.subtle.digest("SHA-256", message);
+  const msgHash = await crypto.subtle.digest("SHA-256", message.buffer as ArrayBuffer);
   
   const credential = await navigator.credentials.get({
     publicKey: {
       challenge: new Uint8Array(msgHash),
       rpId: window.location.hostname,
       allowCredentials: [{
-        id: credentialId,
+        id: credentialId.buffer as ArrayBuffer,
         type: "public-key",
       }],
       userVerification: "required",
@@ -64,7 +72,23 @@ export async function signWithPasskey(
   }) as PublicKeyCredential;
   
   const response = credential.response as AuthenticatorAssertionResponse;
-  return derToRaw(new Uint8Array(response.signature));
+  
+  // WebAuthn signs: authenticatorData || SHA-256(clientDataJSON)
+  const authenticatorData = new Uint8Array(response.authenticatorData);
+  const clientDataJSON = new Uint8Array(response.clientDataJSON);
+  const clientDataHash = new Uint8Array(await crypto.subtle.digest("SHA-256", clientDataJSON.buffer as ArrayBuffer));
+  
+  // Construct the actual signed message
+  const signedMessage = new Uint8Array(authenticatorData.length + clientDataHash.length);
+  signedMessage.set(authenticatorData, 0);
+  signedMessage.set(clientDataHash, authenticatorData.length);
+  
+  return {
+    signature: derToRaw(new Uint8Array(response.signature)),
+    authenticatorData,
+    clientDataJSON,
+    signedMessage,
+  };
 }
 
 function extractPublicKey(spki: ArrayBuffer): Uint8Array {

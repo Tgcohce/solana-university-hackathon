@@ -1,14 +1,18 @@
 import "./globals.css";
+import type { Metadata } from "next";
 
-export const metadata = {
-  title: "Keystore - Passkey Wallet for Solana",
-  description: "No seed phrases. Just your face.",
+export const metadata: Metadata = {
+  title: "Keyless - Biometric Wallet for Solana",
+  description: "Your face is your key. No seed phrases. Instant wallet creation.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-black text-white min-h-screen">{children}</body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }
