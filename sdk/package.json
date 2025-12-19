@@ -1,0 +1,53 @@
+{
+  "name": "@keyless/sdk",
+  "version": "0.1.0",
+  "description": "Keyless SDK - Biometric wallet infrastructure for Solana using passkeys and secp256r1",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "solana",
+    "passkey",
+    "webauthn",
+    "biometric",
+    "wallet",
+    "secp256r1",
+    "keyless"
+  ],
+  "author": "Keyless Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tgcohce/solana-university-hackathon"
+  },
+  "peerDependencies": {
+    "@solana/web3.js": "^1.87.0"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.3.0"
+  },
+  "devDependencies": {
+    "@solana/web3.js": "^1.87.0",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+
