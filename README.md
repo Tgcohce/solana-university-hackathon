@@ -262,7 +262,7 @@ MIT License - feel free to use this code for your own projects!
 
 ## 🎥 Demo Video
 
-[Link to demo video - to be added]
+[Watch the Demo on YouTube](https://youtu.be/Ong4XZ2eGE4)
 
 ## 🌐 Live Demo
 
