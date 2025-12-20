@@ -16,12 +16,16 @@
 ## Installation
 
 ```bash
-npm install @keyless/sdk @solana/web3.js
+npm install @keyless/sdk @solana/web3.js @coral-xyz/anchor
 # or
-yarn add @keyless/sdk @solana/web3.js
+yarn add @keyless/sdk @solana/web3.js @coral-xyz/anchor
 # or
-pnpm add @keyless/sdk @solana/web3.js
+pnpm add @keyless/sdk @solana/web3.js @coral-xyz/anchor
 ```
+
+**Peer Dependencies:**
+- `@solana/web3.js` >= 1.87.0
+- `@coral-xyz/anchor` >= 0.30.0 (used for Anchor instruction serialization)
 
 ## Quick Start
 
