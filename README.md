@@ -11,6 +11,24 @@
   <a href="https://solana.com"><img src="https://img.shields.io/badge/Solana-Devnet-00D4FF?style=flat-square" alt="Solana Devnet" /></a>
 </p>
 
+## Acknowledgments
+
+- Solana Foundation for the hackathon
+- SIMD-0075 for the secp256r1 precompile
+- WebAuthn community for passkey standards
+- Anchor framework for making Solana development easier
+
+## Demo Video
+
+[Watch the Demo on YouTube](https://youtu.be/Ong4XZ2eGE4)
+
+## 🌐 Live Demo
+
+[Link to live deployment](https://solana-university-hackathon.vercel.app/)
+
+
+Built with ❤️ for the Solana University Hackathon
+
 **Hackathon Project** - For the demo we created a Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile, and enabled Keyless Arhictecture. 
 
 
@@ -248,31 +266,8 @@ Executes an action with signature verification.
 ## 🐛 Known Limitations
 
 - **Devnet Only**: Currently configured for Solana devnet
-- **Demo Relayer**: Uses airdrop instead of proper relayer
 - **No Transaction History**: History not yet implemented
 - **Single Key Only**: Multi-key support partially implemented
-
-## 📄 License
-
-MIT License - feel free to use this code for your own projects!
-
-## 🙏 Acknowledgments
-
-- Solana Foundation for the hackathon
-- SIMD-0075 for the secp256r1 precompile
-- WebAuthn community for passkey standards
-- Anchor framework for making Solana development easier
-
-## 🎥 Demo Video
-
-[Watch the Demo on YouTube](https://youtu.be/Ong4XZ2eGE4)
-
-## 🌐 Live Demo
-
-[Link to live deployment](https://solana-university-hackathon.vercel.app/)
-
-
-Built with ❤️ for the Solana University Hackathon
 
 ---
 
