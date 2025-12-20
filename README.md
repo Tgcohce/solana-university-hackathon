@@ -1,4 +1,4 @@
-<h1 align="center">Keyless/h1>
+<h1 align="center">Keyless</h1>
 
 <p align="center">
   <strong>Biometric wallet infrastructure for Solana</strong><br/>
