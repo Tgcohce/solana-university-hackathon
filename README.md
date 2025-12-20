@@ -1,4 +1,4 @@
-<h1 align="center">Keyless</h1>
+<h1 align="center">Keyless - Infrastructure-as-a-Service</h1>
 
 <p align="center">
   <strong>Biometric wallet infrastructure for Solana</strong><br/>
@@ -10,7 +10,6 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-9945FF.svg?style=flat-square" alt="License: MIT" /></a>
   <a href="https://solana.com"><img src="https://img.shields.io/badge/Solana-Devnet-00D4FF?style=flat-square" alt="Solana Devnet" /></a>
 </p>
-# Keyless - Infrastructure-as-a-Service
 
 **Hackathon Project** - For the demo we created a Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile, and enabled Keyless Arhictecture. 
 
