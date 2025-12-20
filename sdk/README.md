@@ -1,61 +1,49 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Tgcohce/solana-university-hackathon/main/assets/keyless-logo.svg" width="120" alt="Keyless Logo" />
-</p>
+# @keyless/sdk
 
-<h1 align="center">@keyless/sdk</h1>
+**Biometric wallet infrastructure for Solana using passkeys (WebAuthn) and secp256r1 signature verification.**
 
-<p align="center">
-  <strong>Biometric wallet infrastructure for Solana</strong><br/>
-  Passkeys (WebAuthn) + secp256r1 signature verification
-</p>
+[![npm version](https://img.shields.io/npm/v/@keyless/sdk?style=flat-square)](https://www.npmjs.com/package/@keyless/sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Solana](https://img.shields.io/badge/Solana-Devnet-green?style=flat-square)](https://solana.com)
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/@keyless/sdk"><img src="https://img.shields.io/npm/v/@keyless/sdk?style=flat-square&color=14F195" alt="npm version" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-9945FF.svg?style=flat-square" alt="License: MIT" /></a>
-  <a href="https://solana.com"><img src="https://img.shields.io/badge/Solana-Devnet-00D4FF?style=flat-square" alt="Solana Devnet" /></a>
-</p>
+---
 
-<p align="center">
-  <a href="#demo">Demo</a> •
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#api-reference">API</a> •
-  <a href="#architecture">Architecture</a>
-</p>
+## Table of Contents
+
+- [Demo](#demo)
+- [Overview](#overview)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Types](#types)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Browser Compatibility](#browser-compatibility)
+- [Development](#development)
+- [License](#license)
 
 ---
 
 ## Demo
 
-<p align="center">
-  <a href="YOUR_DEMO_VIDEO_LINK_HERE">
-    <img src="https://img.shields.io/badge/▶_Watch_Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo" />
-  </a>
-  &nbsp;&nbsp;
-  <a href="YOUR_LIVE_DEMO_LINK_HERE">
-    <img src="https://img.shields.io/badge/Try_Live_Demo-14F195?style=for-the-badge&logo=vercel&logoColor=black" alt="Live Demo" />
-  </a>
-</p>
+**Video Demonstration:** [Watch on YouTube](YOUR_DEMO_VIDEO_LINK_HERE)
 
-<!-- Replace with actual demo GIF -->
-<!-- <p align="center">
-  <img src="./assets/demo.gif" width="600" alt="Keyless Demo" />
-</p> -->
+**Live Demo:** [Try it now](YOUR_LIVE_DEMO_LINK_HERE)
 
 ---
 
-## Features
+## Overview
 
-| Feature | Description |
-|---------|-------------|
-| 🔐 **Passkey Authentication** | Use FaceID, TouchID, Windows Hello, or security keys |
-| 🚀 **No Seed Phrases** | Private keys never leave the device's secure enclave |
-| ⚡ **Instant Signing** | Biometric authentication in milliseconds |
-| 🔒 **On-Chain Verification** | secp256r1 signature verification via Solana precompile |
-| 📱 **Cross-Platform** | Works on Web, iOS, and Android |
-| 🔑 **Multi-Sig Support** | Up to 5 keys with configurable threshold |
-| 🛡️ **Replay Protection** | Nonce-based transaction security |
+Keyless SDK enables Solana applications to authenticate users via device biometrics (FaceID, TouchID, Windows Hello) instead of traditional seed phrases. Private keys are generated and stored exclusively within the device's secure enclave, never exposed to the application layer.
+
+### Key Features
+
+- **Passkey-based authentication** — Leverages WebAuthn for secure credential management
+- **No seed phrases** — Private keys remain in the device's secure enclave
+- **On-chain verification** — secp256r1 signatures verified via Solana's native precompile
+- **Cross-platform support** — Compatible with web browsers, iOS, and Android
+- **Multi-signature support** — Configure up to 5 keys with customizable thresholds
+- **Replay protection** — Nonce-based transaction security
 
 ---
 
@@ -65,31 +53,18 @@
 npm install @keyless/sdk @solana/web3.js @coral-xyz/anchor
 ```
 
-<details>
-<summary>Using yarn or pnpm</summary>
-
-```bash
-# yarn
-yarn add @keyless/sdk @solana/web3.js @coral-xyz/anchor
-
-# pnpm
-pnpm add @keyless/sdk @solana/web3.js @coral-xyz/anchor
-```
-
-</details>
-
 ### Peer Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
+| Package | Version | Description |
+|---------|---------|-------------|
 | `@solana/web3.js` | >= 1.87.0 | Solana JavaScript SDK |
-| `@coral-xyz/anchor` | >= 0.30.0 | Anchor instruction serialization |
+| `@coral-xyz/anchor` | >= 0.30.0 | Anchor framework for instruction serialization |
 
 ---
 
 ## Quick Start
 
-### 1. Initialize the Client
+### Initialize the Client
 
 ```typescript
 import { KeylessClient } from "@keyless/sdk";
@@ -99,36 +74,33 @@ const client = new KeylessClient({
 });
 ```
 
-### 2. Create a Wallet
+### Create a Wallet
 
 ```typescript
 import { createPasskey, storeCredential } from "@keyless/sdk";
 import { Keypair } from "@solana/web3.js";
 
-// Trigger biometric authentication (FaceID/TouchID/Windows Hello)
-const credential = await createPasskey("user@example.com", "My App");
+// Triggers biometric authentication
+const credential = await createPasskey("user@example.com", "Application Name");
 
-// Create on-chain identity (relayer pays for rent)
-const adminKeypair = Keypair.fromSecretKey(/* your relayer key */);
+// Create on-chain identity (relayer pays transaction fees)
+const relayerKeypair = Keypair.fromSecretKey(/* relayer secret key */);
 const result = await client.createIdentity(
   credential.publicKey,
-  "iPhone 15 Pro",
-  adminKeypair
+  "Device Name",
+  relayerKeypair
 );
 
-// Persist for future sessions
+// Persist credentials for future sessions
 storeCredential({
   credentialId: Array.from(credential.credentialId),
   publicKey: Array.from(credential.publicKey),
   identity: result.identity.toBase58(),
   vault: result.vault.toBase58(),
 });
-
-console.log("Wallet created!");
-console.log("Vault address:", result.vault.toBase58());
 ```
 
-### 3. Send SOL
+### Send SOL
 
 ```typescript
 import { signWithPasskey, getStoredCredential, solToLamports } from "@keyless/sdk";
@@ -140,10 +112,9 @@ if (!stored) throw new Error("No wallet found");
 const identity = new PublicKey(stored.identity);
 const account = await client.getIdentity(identity);
 
-// Define the transfer
 const action = {
   type: "send" as const,
-  to: new PublicKey("RecipientAddress..."),
+  to: new PublicKey("RecipientAddress"),
   lamports: solToLamports(0.1),
 };
 
@@ -154,19 +125,17 @@ const signature = await signWithPasskey(
   message
 );
 
-// Execute on-chain
-const tx = await client.execute(
+// Execute transaction
+const result = await client.execute(
   identity,
   action,
   new Uint8Array(stored.publicKey),
   signature,
-  adminKeypair
+  relayerKeypair
 );
-
-console.log("Transaction:", tx.signature);
 ```
 
-### 4. Check Balance
+### Check Balance
 
 ```typescript
 import { lamportsToSol } from "@keyless/sdk";
@@ -181,13 +150,13 @@ console.log("Balance:", lamportsToSol(balance), "SOL");
 
 ### KeylessClient
 
-The main client for interacting with the Keyless program.
+Primary client for interacting with the Keyless program.
 
 ```typescript
 const client = new KeylessClient({
-  rpcUrl: string;           // Solana RPC endpoint
-  programId?: string;       // Optional: custom program ID
-  idl?: any;                // Optional: custom Anchor IDL
+  rpcUrl: string;       // Solana RPC endpoint
+  programId?: string;   // Custom program ID (optional)
+  idl?: any;            // Custom Anchor IDL (optional)
 });
 ```
 
@@ -195,26 +164,26 @@ const client = new KeylessClient({
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `getIdentityPDA` | `pubkey: Uint8Array` | `PublicKey` | Derive identity PDA from passkey |
-| `getVaultPDA` | `identity: PublicKey` | `PublicKey` | Derive vault PDA from identity |
-| `getIdentity` | `identity: PublicKey` | `IdentityAccount \| null` | Fetch identity account data |
-| `getVaultBalance` | `vault: PublicKey` | `number` | Get vault SOL balance (lamports) |
-| `identityExists` | `identity: PublicKey` | `boolean` | Check if identity exists |
-| `buildMessage` | `action: Action, nonce: number` | `Uint8Array` | Build signable message |
-| `createIdentity` | `pubkey, deviceName, payer` | `CreateIdentityResult` | Create new identity on-chain |
-| `execute` | `identity, action, pubkey, sig, payer` | `ExecuteResult` | Execute a transaction |
+| `getIdentityPDA` | `pubkey: Uint8Array` | `PublicKey` | Derives identity PDA from passkey public key |
+| `getVaultPDA` | `identity: PublicKey` | `PublicKey` | Derives vault PDA from identity |
+| `getIdentity` | `identity: PublicKey` | `IdentityAccount \| null` | Fetches identity account data |
+| `getVaultBalance` | `vault: PublicKey` | `number` | Returns vault balance in lamports |
+| `identityExists` | `identity: PublicKey` | `boolean` | Checks if identity exists on-chain |
+| `buildMessage` | `action: Action, nonce: number` | `Uint8Array` | Builds message for signing |
+| `createIdentity` | `pubkey, deviceName, payer` | `CreateIdentityResult` | Creates new identity on-chain |
+| `execute` | `identity, action, pubkey, signature, payer` | `ExecuteResult` | Executes a transaction |
 
 ### Passkey Functions
 
 ```typescript
-// Create a new passkey (triggers biometric)
+// Create a new passkey credential
 createPasskey(
   username: string,
   rpName?: string,
   rpId?: string
 ): Promise<PasskeyCredential>
 
-// Sign with existing passkey (triggers biometric)
+// Sign a message with an existing passkey
 signWithPasskey(
   credentialId: Uint8Array,
   message: Uint8Array,
@@ -231,20 +200,19 @@ hasStoredCredential(): boolean
 ### Utility Functions
 
 ```typescript
-// Message building
+// Build message for signing
 buildMessage(action: Action, nonce: number): Uint8Array
 
-// Conversion helpers
-solToLamports(sol: number): number      // 1.5 → 1500000000
-lamportsToSol(lamports: number): number // 1500000000 → 1.5
+// Unit conversion
+solToLamports(sol: number): number
+lamportsToSol(lamports: number): number
 ```
 
 ---
 
 ## Types
 
-<details>
-<summary><strong>Action Types</strong></summary>
+### Action Types
 
 ```typescript
 type Action = SendAction | SetThresholdAction;
@@ -261,35 +229,29 @@ interface SetThresholdAction {
 }
 ```
 
-</details>
-
-<details>
-<summary><strong>Credential Types</strong></summary>
+### Credential Types
 
 ```typescript
 interface PasskeyCredential {
-  publicKey: Uint8Array;    // 33-byte compressed secp256r1
-  credentialId: Uint8Array; // WebAuthn credential ID
+  publicKey: Uint8Array;    // 33-byte compressed secp256r1 public key
+  credentialId: Uint8Array; // WebAuthn credential identifier
 }
 
 interface StoredCredential {
   credentialId: number[];
   publicKey: number[];
-  identity: string;  // Base58 PDA address
-  vault: string;     // Base58 PDA address
+  identity: string;         // Base58-encoded PDA address
+  vault: string;            // Base58-encoded PDA address
 }
 
 interface PasskeySignature {
   signature: Uint8Array;         // 64-byte raw signature (r || s)
   authenticatorData: Uint8Array; // WebAuthn authenticator data
-  clientDataJSON: Uint8Array;    // WebAuthn client data
+  clientDataJSON: Uint8Array;    // WebAuthn client data JSON
 }
 ```
 
-</details>
-
-<details>
-<summary><strong>Account Types</strong></summary>
+### Account Types
 
 ```typescript
 interface IdentityAccount {
@@ -307,55 +269,67 @@ interface RegisteredKey {
 }
 ```
 
-</details>
-
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           Your Application                          │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                          @keyless/sdk                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐ │
-│  │   Passkey   │  │   Client    │  │  secp256r1  │  │  Message   │ │
-│  │   Module    │  │   Module    │  │   Module    │  │  Builder   │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-         │                  │                  │
-         ▼                  ▼                  ▼
-┌─────────────┐    ┌─────────────┐    ┌─────────────────────────────┐
-│   Device    │    │   Solana    │    │      Solana Network         │
-│   Secure    │    │   RPC       │    │  ┌─────────┐  ┌──────────┐  │
-│   Enclave   │    │             │    │  │Keyless  │  │secp256r1 │  │
-│  (FaceID/   │    │             │    │  │Program  │  │Precompile│  │
-│   TouchID)  │    │             │    │  └─────────┘  └──────────┘  │
-└─────────────┘    └─────────────┘    └─────────────────────────────┘
+Application Layer
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│                        @keyless/sdk                          │
+│                                                              │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────┐ │
+│  │  Passkey   │  │   Client   │  │ secp256r1  │  │Message │ │
+│  │  Module    │  │   Module   │  │   Module   │  │Builder │ │
+│  └────────────┘  └────────────┘  └────────────┘  └────────┘ │
+└──────────────────────────────────────────────────────────────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌────────────┐      ┌────────────┐      ┌─────────────────────┐
+│   Device   │      │   Solana   │      │   Solana Network    │
+│   Secure   │      │    RPC     │      │                     │
+│   Enclave  │      │            │      │  ┌───────────────┐  │
+│            │      │            │      │  │Keyless Program│  │
+│  (FaceID,  │      │            │      │  └───────────────┘  │
+│  TouchID,  │      │            │      │  ┌───────────────┐  │
+│  Windows   │      │            │      │  │   secp256r1   │  │
+│   Hello)   │      │            │      │  │   Precompile  │  │
+└────────────┘      └────────────┘      │  └───────────────┘  │
+                                        └─────────────────────┘
 ```
 
-### How It Works
+### Transaction Flow
 
-1. **Wallet Creation**: User authenticates with biometrics → Passkey created in secure enclave → Public key extracted → Identity PDA created on-chain
+1. **Wallet Creation**
+   - User authenticates via device biometrics
+   - Passkey generated in secure enclave
+   - Public key extracted and compressed to 33 bytes
+   - Identity PDA created on-chain
 
-2. **Transaction Signing**: Build message → User authenticates with biometrics → Passkey signs in secure enclave → Signature returned with WebAuthn data
+2. **Transaction Signing**
+   - Application builds transaction message
+   - User authenticates via biometrics
+   - Passkey signs message in secure enclave
+   - Signature returned with WebAuthn metadata
 
-3. **On-Chain Execution**: secp256r1 precompile verifies signature → Keyless program validates nonce → Action executed (transfer, threshold change, etc.)
+3. **On-Chain Execution**
+   - secp256r1 precompile verifies signature
+   - Keyless program validates nonce
+   - Action executed (transfer, threshold update, etc.)
 
 ---
 
 ## Security
 
-| Layer | Protection |
-|-------|------------|
-| **Key Storage** | Private keys stored in device secure enclave (TPM, Secure Enclave) |
-| **Authentication** | Biometric required for every signature |
-| **Verification** | On-chain secp256r1 signature verification via Solana precompile |
-| **Replay Protection** | Nonce-based transaction ordering |
-| **Multi-Sig** | Up to 5 keys with configurable threshold |
+| Component | Implementation |
+|-----------|----------------|
+| Key Storage | Device secure enclave (TPM, Secure Enclave, Android Keystore) |
+| Authentication | Biometric verification required for each signature |
+| Signature Verification | On-chain via Solana secp256r1 precompile (SIMD-0075) |
+| Replay Protection | Sequential nonce enforcement |
+| Multi-Signature | Configurable threshold with up to 5 registered keys |
 
 ---
 
@@ -363,58 +337,49 @@ interface RegisteredKey {
 
 | Browser | Windows | macOS | Linux | iOS | Android |
 |---------|:-------:|:-----:|:-----:|:---:|:-------:|
-| Chrome  | ✅ | ✅ | ✅ | - | ✅ |
-| Safari  | - | ✅ | - | ✅ | - |
-| Firefox | ✅ | ✅ | ✅ | - | - |
-| Edge    | ✅ | ✅ | - | - | - |
+| Chrome  | Yes | Yes | Yes | — | Yes |
+| Safari  | — | Yes | — | Yes | — |
+| Firefox | Yes | Yes | Yes | — | — |
+| Edge    | Yes | Yes | — | — | — |
 
----
+### Requirements
 
-## Requirements
-
-- **Node.js** 18+ (for development)
-- **Modern browser** with WebAuthn support
-- **Biometric device** (TouchID, FaceID, Windows Hello) or security key
+- Node.js 18 or higher (development)
+- Browser with WebAuthn API support
+- Device with biometric capability or external security key
 
 ---
 
 ## Development
 
 ```bash
-# Clone the repository
 git clone https://github.com/Tgcohce/solana-university-hackathon.git
 cd solana-university-hackathon/sdk
 
-# Install dependencies
 npm install
-
-# Build the SDK
 npm run build
-
-# Watch mode for development
-npm run dev
-
-# Type checking
 npm run lint
 ```
 
----
+### Scripts
 
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](../CONTRIBUTING.md) for details.
+| Command | Description |
+|---------|-------------|
+| `npm run build` | Build the SDK |
+| `npm run dev` | Watch mode for development |
+| `npm run lint` | Type checking |
 
 ---
 
 ## License
 
-MIT © [Keyless Team](https://github.com/Tgcohce/solana-university-hackathon)
+MIT License. See [LICENSE](../LICENSE) for details.
 
 ---
 
-<p align="center">
-  <strong>Built for the Solana University Hackathon</strong><br/>
-  <a href="https://github.com/Tgcohce/solana-university-hackathon">GitHub</a> •
-  <a href="https://github.com/solana-foundation/solana-improvement-documents/pull/75">SIMD-0075</a> •
-  <a href="https://www.w3.org/TR/webauthn-2/">WebAuthn Spec</a>
-</p>
+## References
+
+- [GitHub Repository](https://github.com/Tgcohce/solana-university-hackathon)
+- [SIMD-0075: secp256r1 Precompile](https://github.com/solana-foundation/solana-improvement-documents/pull/75)
+- [WebAuthn Specification](https://www.w3.org/TR/webauthn-2/)
+- [Solana Documentation](https://docs.solana.com/)
