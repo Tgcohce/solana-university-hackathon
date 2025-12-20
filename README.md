@@ -1,3 +1,15 @@
+<h1 align="center">@keyless/sdk</h1>
+
+<p align="center">
+  <strong>Biometric wallet infrastructure for Solana</strong><br/>
+  Passkeys (WebAuthn) + secp256r1 signature verification
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@keyless/sdk"><img src="https://img.shields.io/npm/v/@keyless/sdk?style=flat-square&color=14F195" alt="npm version" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-9945FF.svg?style=flat-square" alt="License: MIT" /></a>
+  <a href="https://solana.com"><img src="https://img.shields.io/badge/Solana-Devnet-00D4FF?style=flat-square" alt="Solana Devnet" /></a>
+</p>
 # Keyless - Infrastructure-as-a-Service
 
 **Hackathon Project** - For the demo we created a Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile, and enabled Keyless Arhictecture. 
