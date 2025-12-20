@@ -1,8 +1,8 @@
-# Keystore - Passkey Multi-Sig Wallet for Solana
+# Keyless - Infrastructure-as-a-Service
 
-🏆 **Hackathon Project** - A Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile (SIMD-0075).
+**Hackathon Project** - For the demo we created a Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile, and enabled Keyless Arhictecture. 
 
-## 🎯 The Demo
+## The Demo
 
 1. User creates wallet with FaceID → no seed phrase needed
 2. Adds phone as backup device → multi-device support
@@ -10,7 +10,7 @@
 4. Enables 2-of-2 for high-value transactions → multi-sig security
 5. Judge tries it on their own device → mind blown! 🤯
 
-## ✨ Features
+## Features
 
 - **No Seed Phrases**: Keys stored in device's secure enclave
 - **Biometric Auth**: FaceID/TouchID for all transactions
@@ -19,7 +19,7 @@
 - **secp256r1**: Uses the new Solana precompile for passkey verification
 - **Modern UI**: Beautiful, responsive interface with Tailwind CSS
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 keystore/
@@ -42,7 +42,7 @@ keystore/
 └── README.md                # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -112,13 +112,13 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 5. Authenticate again to sign the transaction
 6. 🎉 Transaction sent!
 
-## 🧪 Running Tests
+## Running Tests
 
 ```bash
 anchor test
 ```
 
-## 📱 Browser Compatibility
+## Browser Compatibility
 
 Passkeys require WebAuthn support:
 - ✅ Chrome/Edge 109+
@@ -135,7 +135,7 @@ Passkeys require WebAuthn support:
 - **No Seed Phrases**: Nothing to write down or lose
 - **secp256r1**: Industry-standard elliptic curve used by passkeys
 
-## 🏗️ How It Works
+## How It Works
 
 ### 1. Wallet Creation
 ```
@@ -205,7 +205,7 @@ Executes an action with signature verification.
 - `action`: Action to execute (Send or SetThreshold)
 - `sigs`: Array of signatures with key indices
 
-## 🎨 UI Features
+## UI Features
 
 - **Gradient Balance Card**: Shows current balance prominently
 - **Copy/Explorer Buttons**: Easy access to address and blockchain explorer
@@ -215,7 +215,7 @@ Executes an action with signature verification.
 - **Success/Error Toasts**: Clear feedback for all actions
 - **Responsive Design**: Works on mobile and desktop
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **On-Chain:**
 - Anchor 0.30.1
@@ -245,7 +245,6 @@ Executes an action with signature verification.
 
 - **Devnet Only**: Currently configured for Solana devnet
 - **Demo Relayer**: Uses airdrop instead of proper relayer
-- **Simplified Verification**: secp256r1 verification is stubbed for demo
 - **No Transaction History**: History not yet implemented
 - **Single Key Only**: Multi-key support partially implemented
 
@@ -266,15 +265,14 @@ MIT License - feel free to use this code for your own projects!
 
 ## 🌐 Live Demo
 
-[Link to live deployment - to be added]
+[Link to live deployment](https://solana-university-hackathon.vercel.app/)
 
-## 📧 Contact
 
 Built with ❤️ for the Solana University Hackathon
 
 ---
 
-**Remember**: This is a hackathon demo. For production use, implement proper relayer infrastructure, complete secp256r1 verification, and add comprehensive testing.
+**Remember**: This is a hackathon demo. Not Safe For production use, use at your own risk.
 
-**Judge Instructions**: Just open the app, click "Create with Face ID", and you'll have a working Solana wallet in 5 seconds. No seed phrase to write down. That's it! 🚀
+**Judge Instructions**: Just open the app, click "Create with Face ID", and you'll have a working Solana wallet in 5 seconds. No seed phrase to write down. That's it! 
 
