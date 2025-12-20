@@ -6,9 +6,8 @@ import {
   SystemProgram,
   Keypair,
   SYSVAR_INSTRUCTIONS_PUBKEY,
-  LAMPORTS_PER_SOL,
 } from "@solana/web3.js";
-import { sha256 } from "@noble/hashes/sha256";
+import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 import { buildSecp256r1Instruction } from "./secp256r1";
 import { buildMessage } from "./message";
 import type {
@@ -21,12 +20,86 @@ import type {
   PasskeySignature,
 } from "./types";
 
+// IDL type (minimal subset needed)
+interface KeystoreIDL {
+  address: string;
+  metadata: { name: string; version: string; spec: string };
+  instructions: any[];
+  accounts: any[];
+  errors: any[];
+  types: any[];
+}
+
+// Default IDL - matches the deployed program
+const KEYSTORE_IDL: KeystoreIDL = {
+  "address": "A3TmryC5ojiCpB6zHmeTTDw4VcSfqYtMKAFrb68mYeyV",
+  "metadata": { "name": "keystore", "version": "0.1.0", "spec": "0.1.0" },
+  "instructions": [
+    {
+      "name": "create_identity",
+      "discriminator": [12, 253, 209, 41, 176, 51, 195, 179],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "identity", "writable": true },
+        { "name": "vault", "pda": { "seeds": [{ "kind": "const", "value": [118, 97, 117, 108, 116] }, { "kind": "account", "path": "identity" }] } },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "pubkey", "type": { "array": ["u8", 33] } },
+        { "name": "device_name", "type": "string" }
+      ]
+    },
+    {
+      "name": "execute",
+      "discriminator": [130, 221, 242, 154, 13, 193, 189, 29],
+      "accounts": [
+        { "name": "identity", "writable": true },
+        { "name": "vault", "writable": true, "pda": { "seeds": [{ "kind": "const", "value": [118, 97, 117, 108, 116] }, { "kind": "account", "path": "identity" }] } },
+        { "name": "recipient", "writable": true, "optional": true },
+        { "name": "instructions", "address": "Sysvar1nstructions1111111111111111111111111" },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "action", "type": { "defined": { "name": "action" } } },
+        { "name": "sigs", "type": { "vec": { "defined": { "name": "signature_data" } } } },
+        { "name": "signed_data", "type": "bytes" }
+      ]
+    }
+  ],
+  "accounts": [
+    { "name": "identity", "discriminator": [58, 132, 5, 12, 176, 164, 85, 112] }
+  ],
+  "errors": [],
+  "types": [
+    {
+      "name": "action",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "send", "fields": [{ "name": "to", "type": "pubkey" }, { "name": "lamports", "type": "u64" }] },
+          { "name": "setThreshold", "fields": [{ "name": "threshold", "type": "u8" }] }
+        ]
+      }
+    },
+    {
+      "name": "signature_data",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "key_index", "type": "u8" },
+          { "name": "signature", "type": { "array": ["u8", 64] } },
+          { "name": "recovery_id", "type": "u8" }
+        ]
+      }
+    }
+  ]
+};
+
 /**
  * Keyless SDK Client
  * 
  * Main client for interacting with the Keyless program on Solana.
- * Provides methods for creating identities, executing transactions,
- * and managing passkey-based wallets.
+ * Uses Anchor for proper instruction serialization.
  * 
  * @example
  * ```typescript
@@ -37,13 +110,13 @@ import type {
  * });
  * 
  * // Create a new wallet
- * const result = await client.createIdentity(publicKey, "My Device");
+ * const result = await client.createIdentity(publicKey, "My Device", adminKeypair);
  * console.log("Vault address:", result.vault.toBase58());
  * ```
  */
 export class KeylessClient {
   private connection: Connection;
-  private programId: PublicKey;
+  private program: Program<any>;
 
   /**
    * Create a new KeylessClient instance
@@ -52,9 +125,24 @@ export class KeylessClient {
    */
   constructor(config: KeylessConfig) {
     this.connection = new Connection(config.rpcUrl, "confirmed");
-    this.programId = new PublicKey(
-      config.programId || "A3TmryC5ojiCpB6zHmeTTDw4VcSfqYtMKAFrb68mYeyV"
-    );
+    
+    // Create Anchor provider (read-only, no wallet needed for queries)
+    const provider = { connection: this.connection } as AnchorProvider;
+    
+    // Use custom IDL if provided, otherwise use default
+    const idl = config.idl || KEYSTORE_IDL;
+    if (config.programId) {
+      idl.address = config.programId;
+    }
+    
+    this.program = new Program(idl as any, provider);
+  }
+
+  /**
+   * Get the program ID
+   */
+  get programId(): PublicKey {
+    return this.program.programId;
   }
 
   // ============================================================================
@@ -69,11 +157,6 @@ export class KeylessClient {
    * 
    * @param pubkey - 33-byte compressed secp256r1 public key
    * @returns The identity PDA address
-   * 
-   * @example
-   * ```typescript
-   * const identityPDA = client.getIdentityPDA(publicKey);
-   * ```
    */
   getIdentityPDA(pubkey: Uint8Array): PublicKey {
     if (pubkey.length !== 33) {
@@ -81,28 +164,20 @@ export class KeylessClient {
     }
     return PublicKey.findProgramAddressSync(
       [Buffer.from("identity"), pubkey.slice(1)],
-      this.programId
+      this.program.programId
     )[0];
   }
 
   /**
    * Derive the vault PDA from an identity PDA
    * 
-   * The vault is where the user's SOL is stored.
-   * Seeds: ["vault", identity]
-   * 
    * @param identity - The identity PDA address
    * @returns The vault PDA address
-   * 
-   * @example
-   * ```typescript
-   * const vaultPDA = client.getVaultPDA(identityPDA);
-   * ```
    */
   getVaultPDA(identity: PublicKey): PublicKey {
     return PublicKey.findProgramAddressSync(
       [Buffer.from("vault"), identity.toBuffer()],
-      this.programId
+      this.program.programId
     )[0];
   }
 
@@ -115,15 +190,6 @@ export class KeylessClient {
    * 
    * @param identity - The identity PDA address
    * @returns The identity account data or null if not found
-   * 
-   * @example
-   * ```typescript
-   * const account = await client.getIdentity(identityPDA);
-   * if (account) {
-   *   console.log("Nonce:", account.nonce);
-   *   console.log("Threshold:", account.threshold);
-   * }
-   * ```
    */
   async getIdentity(identity: PublicKey): Promise<IdentityAccount | null> {
     try {
@@ -150,12 +216,6 @@ export class KeylessClient {
    * 
    * @param vault - The vault PDA address
    * @returns Balance in lamports
-   * 
-   * @example
-   * ```typescript
-   * const balance = await client.getVaultBalance(vaultPDA);
-   * console.log("Balance:", balance / LAMPORTS_PER_SOL, "SOL");
-   * ```
    */
   async getVaultBalance(vault: PublicKey): Promise<number> {
     return await this.connection.getBalance(vault);
@@ -179,8 +239,6 @@ export class KeylessClient {
   /**
    * Build the message that needs to be signed for an action
    * 
-   * This is a convenience method that wraps the message builder.
-   * 
    * @param action - The action to execute
    * @param nonce - The current nonce from the identity account
    * @returns The message bytes to sign
@@ -199,17 +257,6 @@ export class KeylessClient {
    * @param deviceName - Human-readable device name
    * @param payer - Keypair to pay for transaction (admin wallet)
    * @returns The created identity details
-   * 
-   * @example
-   * ```typescript
-   * const result = await client.createIdentity(
-   *   credential.publicKey,
-   *   "iPhone 15",
-   *   adminKeypair
-   * );
-   * console.log("Identity:", result.identity.toBase58());
-   * console.log("Vault:", result.vault.toBase58());
-   * ```
    */
   async createIdentity(
     pubkey: Uint8Array,
@@ -234,34 +281,23 @@ export class KeylessClient {
       };
     }
 
-    // Build instruction data
-    const discriminator = this.getDiscriminator("create_identity");
-    const nameBytes = new TextEncoder().encode(deviceName);
-    const dataLength = 8 + 33 + 4 + nameBytes.length;
-    const data = new Uint8Array(dataLength);
-    
-    data.set(discriminator, 0);
-    data.set(pubkey, 8);
-    const view = new DataView(data.buffer);
-    view.setUint32(8 + 33, nameBytes.length, true);
-    data.set(nameBytes, 8 + 33 + 4);
-
-    const ix = new TransactionInstruction({
-      keys: [
-        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-        { pubkey: identity, isSigner: false, isWritable: true },
-        { pubkey: vault, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      ],
-      programId: this.programId,
-      data: Buffer.from(data),
-    });
+    // Build instruction using Anchor
+    const createIx = await (this.program.methods as any)
+      .createIdentity(
+        Array.from(pubkey) as unknown as number[],
+        deviceName
+      )
+      .accounts({
+        payer: payer.publicKey,
+        identity: identity,
+      })
+      .instruction();
 
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
     const tx = new Transaction({
       feePayer: payer.publicKey,
       recentBlockhash: blockhash,
-    }).add(ix);
+    }).add(createIx);
 
     tx.sign(payer);
 
@@ -289,22 +325,6 @@ export class KeylessClient {
    * @param signature - Passkey signature result
    * @param payer - Keypair to pay for transaction
    * @returns The transaction result
-   * 
-   * @example
-   * ```typescript
-   * // Sign the message with passkey
-   * const message = client.buildMessage(action, nonce);
-   * const sig = await signWithPasskey(credentialId, message);
-   * 
-   * // Execute on-chain
-   * const result = await client.execute(
-   *   identityPDA,
-   *   { type: "send", to: recipient, lamports: 100000000 },
-   *   publicKey,
-   *   sig,
-   *   adminKeypair
-   * );
-   * ```
    */
   async execute(
     identity: PublicKey,
@@ -333,15 +353,30 @@ export class KeylessClient {
       signature.signature
     );
 
-    // Build execute instruction
-    const executeIx = await this.buildExecuteInstruction(
-      identity,
-      vault,
-      action,
-      [{ keyIndex: 0, signature: signature.signature, recoveryId: 0 }],
-      signedData,
-      action.type === "send" ? action.to : null
-    );
+    // Convert action to Anchor format
+    const anchorAction = action.type === "send"
+      ? { send: { to: action.to, lamports: new BN(action.lamports) } }
+      : { setThreshold: { threshold: action.threshold } };
+
+    // Convert signature to Anchor format
+    const anchorSigs = [{
+      keyIndex: 0,
+      signature: Array.from(signature.signature) as unknown as number[],
+      recoveryId: 0,
+    }];
+
+    // Determine recipient for Send action
+    const recipient = action.type === "send" ? action.to : null;
+
+    // Build execute instruction using Anchor
+    const executeIx = await (this.program.methods as any)
+      .execute(anchorAction, anchorSigs, Buffer.from(signedData))
+      .accounts({
+        identity: identity,
+        vault: vault,
+        recipient: recipient,
+      })
+      .instruction();
 
     // Build and send transaction
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
@@ -350,6 +385,7 @@ export class KeylessClient {
       recentBlockhash: blockhash,
     });
 
+    // Add verify instruction BEFORE execute instruction
     tx.add(verifyIx);
     tx.add(executeIx);
     tx.sign(payer);
@@ -366,72 +402,6 @@ export class KeylessClient {
   // ============================================================================
   // Internal Helpers
   // ============================================================================
-
-  private getDiscriminator(instructionName: string): Uint8Array {
-    const hash = sha256(`global:${instructionName}`);
-    return hash.slice(0, 8);
-  }
-
-  private async buildExecuteInstruction(
-    identity: PublicKey,
-    vault: PublicKey,
-    action: Action,
-    sigs: SignatureData[],
-    signedData: Uint8Array,
-    recipient: PublicKey | null
-  ): Promise<TransactionInstruction> {
-    const discriminator = this.getDiscriminator("execute");
-
-    // Build action data
-    let actionData: Uint8Array;
-    if (action.type === "send") {
-      actionData = new Uint8Array(1 + 32 + 8);
-      actionData[0] = 0; // Send variant
-      actionData.set(action.to.toBytes(), 1);
-      new DataView(actionData.buffer).setBigUint64(33, BigInt(action.lamports), true);
-    } else {
-      actionData = new Uint8Array(2);
-      actionData[0] = 1; // SetThreshold variant
-      actionData[1] = action.threshold;
-    }
-
-    // Build signatures data
-    const sigsData = new Uint8Array(4 + sigs.length * 66);
-    new DataView(sigsData.buffer).setUint32(0, sigs.length, true);
-    let offset = 4;
-    for (const sig of sigs) {
-      sigsData[offset++] = sig.keyIndex;
-      sigsData.set(sig.signature, offset);
-      offset += 64;
-      sigsData[offset++] = sig.recoveryId;
-    }
-
-    // Build signed data with length prefix
-    const signedDataWithLen = new Uint8Array(4 + signedData.length);
-    new DataView(signedDataWithLen.buffer).setUint32(0, signedData.length, true);
-    signedDataWithLen.set(signedData, 4);
-
-    const data = Buffer.concat([
-      Buffer.from(discriminator),
-      Buffer.from(actionData),
-      Buffer.from(sigsData),
-      Buffer.from(signedDataWithLen),
-    ]);
-
-    const keys = [
-      { pubkey: identity, isSigner: false, isWritable: true },
-      { pubkey: vault, isSigner: false, isWritable: true },
-      { pubkey: recipient || identity, isSigner: false, isWritable: true },
-      { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ];
-
-    return new TransactionInstruction({
-      keys,
-      programId: this.programId,
-      data,
-    });
-  }
 
   private async confirmTransaction(
     signature: string,
@@ -463,4 +433,3 @@ export class KeylessClient {
     throw new Error("Transaction confirmation timeout");
   }
 }
-
