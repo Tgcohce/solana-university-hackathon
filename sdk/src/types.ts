@@ -155,6 +155,8 @@ export interface KeylessConfig {
   rpcUrl: string;
   /** Program ID (defaults to deployed Keyless program) */
   programId?: string;
+  /** Custom Anchor IDL (optional, uses built-in IDL by default) */
+  idl?: any;
   /** Relying party name for WebAuthn */
   rpName?: string;
   /** Relying party ID (defaults to window.location.hostname) */

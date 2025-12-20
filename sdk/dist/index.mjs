@@ -2,12 +2,9 @@
 import {
   Connection,
   PublicKey as PublicKey2,
-  Transaction,
-  TransactionInstruction as TransactionInstruction2,
-  SystemProgram,
-  SYSVAR_INSTRUCTIONS_PUBKEY
+  Transaction
 } from "@solana/web3.js";
-import { sha256 as sha2562 } from "@noble/hashes/sha256";
+import { Program, BN } from "@coral-xyz/anchor";
 
 // src/secp256r1.ts
 import { TransactionInstruction, PublicKey } from "@solana/web3.js";
@@ -117,6 +114,69 @@ function lamportsToSol(lamports) {
 }
 
 // src/client.ts
+var KEYSTORE_IDL = {
+  "address": "A3TmryC5ojiCpB6zHmeTTDw4VcSfqYtMKAFrb68mYeyV",
+  "metadata": { "name": "keystore", "version": "0.1.0", "spec": "0.1.0" },
+  "instructions": [
+    {
+      "name": "create_identity",
+      "discriminator": [12, 253, 209, 41, 176, 51, 195, 179],
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "identity", "writable": true },
+        { "name": "vault", "pda": { "seeds": [{ "kind": "const", "value": [118, 97, 117, 108, 116] }, { "kind": "account", "path": "identity" }] } },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "pubkey", "type": { "array": ["u8", 33] } },
+        { "name": "device_name", "type": "string" }
+      ]
+    },
+    {
+      "name": "execute",
+      "discriminator": [130, 221, 242, 154, 13, 193, 189, 29],
+      "accounts": [
+        { "name": "identity", "writable": true },
+        { "name": "vault", "writable": true, "pda": { "seeds": [{ "kind": "const", "value": [118, 97, 117, 108, 116] }, { "kind": "account", "path": "identity" }] } },
+        { "name": "recipient", "writable": true, "optional": true },
+        { "name": "instructions", "address": "Sysvar1nstructions1111111111111111111111111" },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": [
+        { "name": "action", "type": { "defined": { "name": "action" } } },
+        { "name": "sigs", "type": { "vec": { "defined": { "name": "signature_data" } } } },
+        { "name": "signed_data", "type": "bytes" }
+      ]
+    }
+  ],
+  "accounts": [
+    { "name": "identity", "discriminator": [58, 132, 5, 12, 176, 164, 85, 112] }
+  ],
+  "errors": [],
+  "types": [
+    {
+      "name": "action",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "send", "fields": [{ "name": "to", "type": "pubkey" }, { "name": "lamports", "type": "u64" }] },
+          { "name": "setThreshold", "fields": [{ "name": "threshold", "type": "u8" }] }
+        ]
+      }
+    },
+    {
+      "name": "signature_data",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "key_index", "type": "u8" },
+          { "name": "signature", "type": { "array": ["u8", 64] } },
+          { "name": "recovery_id", "type": "u8" }
+        ]
+      }
+    }
+  ]
+};
 var KeylessClient = class {
   /**
    * Create a new KeylessClient instance
@@ -125,9 +185,18 @@ var KeylessClient = class {
    */
   constructor(config) {
     this.connection = new Connection(config.rpcUrl, "confirmed");
-    this.programId = new PublicKey2(
-      config.programId || "A3TmryC5ojiCpB6zHmeTTDw4VcSfqYtMKAFrb68mYeyV"
-    );
+    const provider = { connection: this.connection };
+    const idl = config.idl || KEYSTORE_IDL;
+    if (config.programId) {
+      idl.address = config.programId;
+    }
+    this.program = new Program(idl, provider);
+  }
+  /**
+   * Get the program ID
+   */
+  get programId() {
+    return this.program.programId;
   }
   // ============================================================================
   // PDA Derivation
@@ -140,11 +209,6 @@ var KeylessClient = class {
    * 
    * @param pubkey - 33-byte compressed secp256r1 public key
    * @returns The identity PDA address
-   * 
-   * @example
-   * ```typescript
-   * const identityPDA = client.getIdentityPDA(publicKey);
-   * ```
    */
   getIdentityPDA(pubkey) {
     if (pubkey.length !== 33) {
@@ -152,27 +216,19 @@ var KeylessClient = class {
     }
     return PublicKey2.findProgramAddressSync(
       [Buffer.from("identity"), pubkey.slice(1)],
-      this.programId
+      this.program.programId
     )[0];
   }
   /**
    * Derive the vault PDA from an identity PDA
    * 
-   * The vault is where the user's SOL is stored.
-   * Seeds: ["vault", identity]
-   * 
    * @param identity - The identity PDA address
    * @returns The vault PDA address
-   * 
-   * @example
-   * ```typescript
-   * const vaultPDA = client.getVaultPDA(identityPDA);
-   * ```
    */
   getVaultPDA(identity) {
     return PublicKey2.findProgramAddressSync(
       [Buffer.from("vault"), identity.toBuffer()],
-      this.programId
+      this.program.programId
     )[0];
   }
   // ============================================================================
@@ -183,15 +239,6 @@ var KeylessClient = class {
    * 
    * @param identity - The identity PDA address
    * @returns The identity account data or null if not found
-   * 
-   * @example
-   * ```typescript
-   * const account = await client.getIdentity(identityPDA);
-   * if (account) {
-   *   console.log("Nonce:", account.nonce);
-   *   console.log("Threshold:", account.threshold);
-   * }
-   * ```
    */
   async getIdentity(identity) {
     try {
@@ -216,12 +263,6 @@ var KeylessClient = class {
    * 
    * @param vault - The vault PDA address
    * @returns Balance in lamports
-   * 
-   * @example
-   * ```typescript
-   * const balance = await client.getVaultBalance(vaultPDA);
-   * console.log("Balance:", balance / LAMPORTS_PER_SOL, "SOL");
-   * ```
    */
   async getVaultBalance(vault) {
     return await this.connection.getBalance(vault);
@@ -242,8 +283,6 @@ var KeylessClient = class {
   /**
    * Build the message that needs to be signed for an action
    * 
-   * This is a convenience method that wraps the message builder.
-   * 
    * @param action - The action to execute
    * @param nonce - The current nonce from the identity account
    * @returns The message bytes to sign
@@ -261,17 +300,6 @@ var KeylessClient = class {
    * @param deviceName - Human-readable device name
    * @param payer - Keypair to pay for transaction (admin wallet)
    * @returns The created identity details
-   * 
-   * @example
-   * ```typescript
-   * const result = await client.createIdentity(
-   *   credential.publicKey,
-   *   "iPhone 15",
-   *   adminKeypair
-   * );
-   * console.log("Identity:", result.identity.toBase58());
-   * console.log("Vault:", result.vault.toBase58());
-   * ```
    */
   async createIdentity(pubkey, deviceName, payer) {
     if (pubkey.length !== 33) {
@@ -288,30 +316,18 @@ var KeylessClient = class {
         publicKey: pubkey
       };
     }
-    const discriminator = this.getDiscriminator("create_identity");
-    const nameBytes = new TextEncoder().encode(deviceName);
-    const dataLength = 8 + 33 + 4 + nameBytes.length;
-    const data = new Uint8Array(dataLength);
-    data.set(discriminator, 0);
-    data.set(pubkey, 8);
-    const view = new DataView(data.buffer);
-    view.setUint32(8 + 33, nameBytes.length, true);
-    data.set(nameBytes, 8 + 33 + 4);
-    const ix = new TransactionInstruction2({
-      keys: [
-        { pubkey: payer.publicKey, isSigner: true, isWritable: true },
-        { pubkey: identity, isSigner: false, isWritable: true },
-        { pubkey: vault, isSigner: false, isWritable: false },
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-      ],
-      programId: this.programId,
-      data: Buffer.from(data)
-    });
+    const createIx = await this.program.methods.createIdentity(
+      Array.from(pubkey),
+      deviceName
+    ).accounts({
+      payer: payer.publicKey,
+      identity
+    }).instruction();
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
     const tx = new Transaction({
       feePayer: payer.publicKey,
       recentBlockhash: blockhash
-    }).add(ix);
+    }).add(createIx);
     tx.sign(payer);
     const signature = await this.connection.sendRawTransaction(tx.serialize());
     await this.confirmTransaction(signature, lastValidBlockHeight);
@@ -335,22 +351,6 @@ var KeylessClient = class {
    * @param signature - Passkey signature result
    * @param payer - Keypair to pay for transaction
    * @returns The transaction result
-   * 
-   * @example
-   * ```typescript
-   * // Sign the message with passkey
-   * const message = client.buildMessage(action, nonce);
-   * const sig = await signWithPasskey(credentialId, message);
-   * 
-   * // Execute on-chain
-   * const result = await client.execute(
-   *   identityPDA,
-   *   { type: "send", to: recipient, lamports: 100000000 },
-   *   publicKey,
-   *   sig,
-   *   adminKeypair
-   * );
-   * ```
    */
   async execute(identity, action, pubkey, signature, payer) {
     if (pubkey.length !== 33) {
@@ -367,14 +367,18 @@ var KeylessClient = class {
       signature.clientDataJSON,
       signature.signature
     );
-    const executeIx = await this.buildExecuteInstruction(
+    const anchorAction = action.type === "send" ? { send: { to: action.to, lamports: new BN(action.lamports) } } : { setThreshold: { threshold: action.threshold } };
+    const anchorSigs = [{
+      keyIndex: 0,
+      signature: Array.from(signature.signature),
+      recoveryId: 0
+    }];
+    const recipient = action.type === "send" ? action.to : null;
+    const executeIx = await this.program.methods.execute(anchorAction, anchorSigs, Buffer.from(signedData)).accounts({
       identity,
       vault,
-      action,
-      [{ keyIndex: 0, signature: signature.signature, recoveryId: 0 }],
-      signedData,
-      action.type === "send" ? action.to : null
-    );
+      recipient
+    }).instruction();
     const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
     const tx = new Transaction({
       feePayer: payer.publicKey,
@@ -393,54 +397,6 @@ var KeylessClient = class {
   // ============================================================================
   // Internal Helpers
   // ============================================================================
-  getDiscriminator(instructionName) {
-    const hash = sha2562(`global:${instructionName}`);
-    return hash.slice(0, 8);
-  }
-  async buildExecuteInstruction(identity, vault, action, sigs, signedData, recipient) {
-    const discriminator = this.getDiscriminator("execute");
-    let actionData;
-    if (action.type === "send") {
-      actionData = new Uint8Array(1 + 32 + 8);
-      actionData[0] = 0;
-      actionData.set(action.to.toBytes(), 1);
-      new DataView(actionData.buffer).setBigUint64(33, BigInt(action.lamports), true);
-    } else {
-      actionData = new Uint8Array(2);
-      actionData[0] = 1;
-      actionData[1] = action.threshold;
-    }
-    const sigsData = new Uint8Array(4 + sigs.length * 66);
-    new DataView(sigsData.buffer).setUint32(0, sigs.length, true);
-    let offset = 4;
-    for (const sig of sigs) {
-      sigsData[offset++] = sig.keyIndex;
-      sigsData.set(sig.signature, offset);
-      offset += 64;
-      sigsData[offset++] = sig.recoveryId;
-    }
-    const signedDataWithLen = new Uint8Array(4 + signedData.length);
-    new DataView(signedDataWithLen.buffer).setUint32(0, signedData.length, true);
-    signedDataWithLen.set(signedData, 4);
-    const data = Buffer.concat([
-      Buffer.from(discriminator),
-      Buffer.from(actionData),
-      Buffer.from(sigsData),
-      Buffer.from(signedDataWithLen)
-    ]);
-    const keys = [
-      { pubkey: identity, isSigner: false, isWritable: true },
-      { pubkey: vault, isSigner: false, isWritable: true },
-      { pubkey: recipient || identity, isSigner: false, isWritable: true },
-      { pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
-    ];
-    return new TransactionInstruction2({
-      keys,
-      programId: this.programId,
-      data
-    });
-  }
   async confirmTransaction(signature, lastValidBlockHeight, maxRetries = 30) {
     for (let i = 0; i < maxRetries; i++) {
       const status = await this.connection.getSignatureStatus(signature);
@@ -566,11 +522,11 @@ function derToRaw(der) {
 }
 
 // src/index.ts
-import { PublicKey as PublicKey3, Keypair as Keypair2, LAMPORTS_PER_SOL as LAMPORTS_PER_SOL2 } from "@solana/web3.js";
+import { PublicKey as PublicKey3, Keypair as Keypair2, LAMPORTS_PER_SOL } from "@solana/web3.js";
 export {
   KeylessClient,
   Keypair2 as Keypair,
-  LAMPORTS_PER_SOL2 as LAMPORTS_PER_SOL,
+  LAMPORTS_PER_SOL,
   PublicKey3 as PublicKey,
   SECP256R1_PROGRAM_ID,
   buildMessage,
