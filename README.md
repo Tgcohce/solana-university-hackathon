@@ -13,13 +13,6 @@
 
 **Hackathon Project** - For the demo we created a Solana wallet that uses FaceID/TouchID (passkeys) instead of seed phrases, powered by the new secp256r1 precompile, and enabled Keyless Arhictecture. 
 
-## The Demo
-
-1. User creates wallet with FaceID → no seed phrase needed
-2. Adds phone as backup device → multi-device support
-3. Sends SOL with biometrics → secure transactions
-4. Enables 2-of-2 for high-value transactions → multi-sig security
-5. Judge tries it on their own device → mind blown! 🤯
 
 ## Features
 
