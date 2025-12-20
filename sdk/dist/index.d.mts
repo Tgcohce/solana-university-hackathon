@@ -121,6 +121,8 @@ interface KeylessConfig {
     rpcUrl: string;
     /** Program ID (defaults to deployed Keyless program) */
     programId?: string;
+    /** Custom Anchor IDL (optional, uses built-in IDL by default) */
+    idl?: any;
     /** Relying party name for WebAuthn */
     rpName?: string;
     /** Relying party ID (defaults to window.location.hostname) */
@@ -149,8 +151,7 @@ interface SignOptions {
  * Keyless SDK Client
  *
  * Main client for interacting with the Keyless program on Solana.
- * Provides methods for creating identities, executing transactions,
- * and managing passkey-based wallets.
+ * Uses Anchor for proper instruction serialization.
  *
  * @example
  * ```typescript
@@ -161,19 +162,23 @@ interface SignOptions {
  * });
  *
  * // Create a new wallet
- * const result = await client.createIdentity(publicKey, "My Device");
+ * const result = await client.createIdentity(publicKey, "My Device", adminKeypair);
  * console.log("Vault address:", result.vault.toBase58());
  * ```
  */
 declare class KeylessClient {
     private connection;
-    private programId;
+    private program;
     /**
      * Create a new KeylessClient instance
      *
      * @param config - Configuration options
      */
     constructor(config: KeylessConfig);
+    /**
+     * Get the program ID
+     */
+    get programId(): PublicKey;
     /**
      * Derive the identity PDA from a passkey public key
      *
@@ -182,26 +187,13 @@ declare class KeylessClient {
      *
      * @param pubkey - 33-byte compressed secp256r1 public key
      * @returns The identity PDA address
-     *
-     * @example
-     * ```typescript
-     * const identityPDA = client.getIdentityPDA(publicKey);
-     * ```
      */
     getIdentityPDA(pubkey: Uint8Array): PublicKey;
     /**
      * Derive the vault PDA from an identity PDA
      *
-     * The vault is where the user's SOL is stored.
-     * Seeds: ["vault", identity]
-     *
      * @param identity - The identity PDA address
      * @returns The vault PDA address
-     *
-     * @example
-     * ```typescript
-     * const vaultPDA = client.getVaultPDA(identityPDA);
-     * ```
      */
     getVaultPDA(identity: PublicKey): PublicKey;
     /**
@@ -209,15 +201,6 @@ declare class KeylessClient {
      *
      * @param identity - The identity PDA address
      * @returns The identity account data or null if not found
-     *
-     * @example
-     * ```typescript
-     * const account = await client.getIdentity(identityPDA);
-     * if (account) {
-     *   console.log("Nonce:", account.nonce);
-     *   console.log("Threshold:", account.threshold);
-     * }
-     * ```
      */
     getIdentity(identity: PublicKey): Promise<IdentityAccount | null>;
     /**
@@ -225,12 +208,6 @@ declare class KeylessClient {
      *
      * @param vault - The vault PDA address
      * @returns Balance in lamports
-     *
-     * @example
-     * ```typescript
-     * const balance = await client.getVaultBalance(vaultPDA);
-     * console.log("Balance:", balance / LAMPORTS_PER_SOL, "SOL");
-     * ```
      */
     getVaultBalance(vault: PublicKey): Promise<number>;
     /**
@@ -242,8 +219,6 @@ declare class KeylessClient {
     identityExists(identity: PublicKey): Promise<boolean>;
     /**
      * Build the message that needs to be signed for an action
-     *
-     * This is a convenience method that wraps the message builder.
      *
      * @param action - The action to execute
      * @param nonce - The current nonce from the identity account
@@ -260,17 +235,6 @@ declare class KeylessClient {
      * @param deviceName - Human-readable device name
      * @param payer - Keypair to pay for transaction (admin wallet)
      * @returns The created identity details
-     *
-     * @example
-     * ```typescript
-     * const result = await client.createIdentity(
-     *   credential.publicKey,
-     *   "iPhone 15",
-     *   adminKeypair
-     * );
-     * console.log("Identity:", result.identity.toBase58());
-     * console.log("Vault:", result.vault.toBase58());
-     * ```
      */
     createIdentity(pubkey: Uint8Array, deviceName: string, payer: Keypair): Promise<CreateIdentityResult>;
     /**
@@ -286,26 +250,8 @@ declare class KeylessClient {
      * @param signature - Passkey signature result
      * @param payer - Keypair to pay for transaction
      * @returns The transaction result
-     *
-     * @example
-     * ```typescript
-     * // Sign the message with passkey
-     * const message = client.buildMessage(action, nonce);
-     * const sig = await signWithPasskey(credentialId, message);
-     *
-     * // Execute on-chain
-     * const result = await client.execute(
-     *   identityPDA,
-     *   { type: "send", to: recipient, lamports: 100000000 },
-     *   publicKey,
-     *   sig,
-     *   adminKeypair
-     * );
-     * ```
      */
     execute(identity: PublicKey, action: Action, pubkey: Uint8Array, signature: PasskeySignature, payer: Keypair): Promise<ExecuteResult>;
-    private getDiscriminator;
-    private buildExecuteInstruction;
     private confirmTransaction;
 }
 
